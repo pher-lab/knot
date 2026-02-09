@@ -1,0 +1,56 @@
+[package]
+name = "knot"
+version = "0.1.0"
+description = "Privacy-first encrypted note app"
+authors = [""]
+license = "AGPL-3.0"
+repository = ""
+default-run = "knot"
+edition = "2021"
+rust-version = "1.70"
+
+[lib]
+name = "knot"
+path = "src/lib.rs"
+
+[[bin]]
+name = "knot"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "1.5", features = [] }
+
+[dependencies]
+tauri = { version = "1.8", features = ["shell-open"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Cryptography
+argon2 = "0.5"
+chacha20poly1305 = "0.10"
+rand = "0.8"
+
+# Storage with SQLCipher encryption
+rusqlite = { version = "0.31", features = ["bundled-sqlcipher-vendored-openssl"] }
+
+# Recovery key
+bip39 = "2.0"
+hkdf = "0.12"
+
+# Utilities
+thiserror = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.6", features = ["v4", "serde"] }
+zeroize = { version = "1.7", features = ["derive"] }
+hex = "0.4"
+dirs = "5.0"
+sha2 = "0.10"
+
+[dev-dependencies]
+tempfile = "3.10"
+
+[profile.release]
+overflow-checks = true
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]

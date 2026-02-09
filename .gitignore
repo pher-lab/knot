@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment
+*.local
+.env*
+
+# Claude Code
+.claude/
+
+# OS
+Thumbs.db
+.DS_Store

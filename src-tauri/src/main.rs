@@ -1,0 +1,31 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+mod commands;
+mod crypto;
+mod models;
+mod storage;
+
+use commands::{AppState, StateWrapper};
+use std::sync::Mutex;
+
+fn main() {
+    tauri::Builder::default()
+        .manage(Mutex::new(AppState::new()) as StateWrapper)
+        .invoke_handler(tauri::generate_handler![
+            commands::auth::check_vault_exists,
+            commands::auth::setup_vault,
+            commands::auth::unlock_vault,
+            commands::auth::lock_vault,
+            commands::auth::recover_vault,
+            commands::notes::create_note,
+            commands::notes::get_note,
+            commands::notes::update_note,
+            commands::notes::delete_note,
+            commands::notes::list_notes,
+            commands::notes::search_notes,
+            commands::settings::load_settings,
+            commands::settings::save_settings,
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
