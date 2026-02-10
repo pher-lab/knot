@@ -9,11 +9,28 @@
 **セキュリティレビュー対応**: 推奨10項目+付随修正 完了
 **Welcomeノート**: 実装完了
 **公開準備**: 完了
-**README**: 作成完了（クローズドアルファ向け英語版）
+**README**: 日英版完成（`README.md` 英語、`README.ja.md` 日本語）
+**GitHub公開**: public（2026-02-10）
+**Zenn記事**: 公開済み
 
 ## セッション履歴
 
-### 2026-02-10: クローズドアルファ公開
+### 2026-02-10 (2): クローズドアルファ告知準備
+- [x] リポジトリをprivate → **public** に変更
+- [x] Description・Topics設定（`encryption`, `privacy`, `note-taking`, `tauri`, `rust`, `e2e-encryption`）
+- [x] Private vulnerability reporting 有効化
+- [x] Wiki / Projects / Discussions 無効化（Issuesのみ有効）
+- [x] Issue templates 作成（バグ報告・機能要望の2種、`.github/ISSUE_TEMPLATE/`）
+- [x] README日英分割（`README.md` 英語版 + `README.ja.md` 日本語版、言語切替リンク付き）
+- [x] `SECURITY.md` 作成（脆弱性報告手順、Private Vulnerability Reporting + メール）
+- [x] Zenn記事公開（「プライバシーが気になる人間が、Claude Codeで暗号化ノートアプリを作った話」）
+  - Zennアカウント: `pher_lab`
+  - 記事ドラフト: `docs/zenn-draft.md`
+
+**環境メモ:**
+- Zennアカウント: `pher_lab`（Googleアカウント連携）
+
+### 2026-02-10 (1): クローズドアルファ公開
 - [x] LICENSEファイル追加（AGPL-3.0全文）
 - [x] `.gitignore` 作成（node_modules, dist, .claude等）
 - [x] ゴミファイル削除（NUL, projectsknot-projectLICENSE）
@@ -150,35 +167,48 @@
 
 ## 次にやるべきこと
 
-### Phase 1 MVP — 公開準備完了
+### Phase 1 MVP — クローズドアルファ公開完了 (2026-02-10)
 
 基本機能・セキュリティ対応・Welcomeノート・バグ修正すべて完了。
 残りの保留項目はリスク受容済み or 将来課題として整理済み。
+GitHub public化・Zenn記事公開・SECURITY.md・Issue templates 完了。
 
-**リリース手順:**
-- [x] README.md作成
-- [x] GitHubリポジトリ作成（private）・プッシュ
-- [x] 実機での統合テスト（ドッグフーディング + 94テスト全パス）
-- [x] ビルド確認（`npm run tauri:build` — MSI + NSIS生成確認）
-- [x] GitHub Releaseでインストーラー配布（クローズドアルファ）
+### 次の開発方針
 
-**Phase 1 MVP — クローズドアルファ公開完了 (2026-02-10)**
+**優先度1: インポート/エクスポート機能**
+- 新規ユーザーの導入障壁を下げるために最優先
+- Markdownファイルの入出力が最低限のスコープ
+
+**優先度2: 小さなUX改善（ドッグフーディングで発見）**
+- タイトルフォーカス時に全選択（編集しやすくする）
+- ツールバーの空行適用時の選択状態修正
+- 検索完了時の表示ちらつき修正
+
+**優先度3: 中規模機能**
+- ノートリストの右クリックコンテキストメニュー（削除等）
+- ピン留め機能（重要なノートを常に上部に表示）
+
+**将来検討（要設計）**
+- フォルダ/ラベル/タグによるノート整理（方式の選定が必要）
 
 ### 将来の拡張オプション
 
 1. **リアルタイムプレビュー**（オプション）- Markdown→HTMLのライブプレビュー
 
-### 将来課題
+### 将来課題（セキュリティレビュー由来）
 
 - ノートリスト復号のパフォーマンス最適化（M-4/M-5関連: タイトル別暗号化等）
-- エディタフォントサイズ設定
-- スペルチェック設定
-- Markdownリンク`[]()`のシンタックスハイライト調整（`[]`が灰色になる問題）
 - パスワード強度メーターの改善（M-7: 辞書チェック等）
 - ロックアウト状態の永続化（H-3: ファイルベース保存）
 - クリップボードクリアタイマー（H-5）
 - リカバリーキーコピー後の視覚フィードバック（M-9）
 - カスタム削除確認ダイアログ（L-10）
+
+### 将来課題（その他）
+
+- エディタフォントサイズ設定
+- スペルチェック設定
+- Markdownリンク`[]()`のシンタックスハイライト調整（`[]`が灰色になる問題）
 
 ## 重要なファイル
 
@@ -196,7 +226,11 @@
 | `src/i18n/` | 翻訳システム（translations, hook, backendErrors） |
 | `src/lib/welcomeNote.ts` | Welcomeノートコンテンツ（日英） |
 | `src/components/` | UIコンポーネント |
-| `README.md` | クローズドアルファ向けREADME（英語） |
+| `README.md` | README英語版（言語切替リンク付き） |
+| `README.ja.md` | README日本語版 |
+| `SECURITY.md` | セキュリティポリシー（脆弱性報告手順） |
+| `.github/ISSUE_TEMPLATE/` | Issue templates（バグ報告・機能要望） |
+| `docs/zenn-draft.md` | Zenn記事のドラフト |
 | `docs/screenshots/` | スクリーンショット（setup, main_editor, sidebar_search） |
 
 ## 開発コマンド
