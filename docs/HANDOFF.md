@@ -11,6 +11,22 @@
 **公開準備**: 完了
 **README**: 作成完了（クローズドアルファ向け英語版）
 
+## セッション履歴
+
+### 2026-02-10: クローズドアルファ公開
+- [x] LICENSEファイル追加（AGPL-3.0全文）
+- [x] `.gitignore` 作成（node_modules, dist, .claude等）
+- [x] ゴミファイル削除（NUL, projectsknot-projectLICENSE）
+- [x] Git初期化・初コミット（90ファイル, 16,404行）
+- [x] GitHub CLI (`gh`) インストール・認証
+- [x] GitHubリポジトリ作成: https://github.com/pher-lab/knot (private)
+- [x] GitHub Release `v0.1.0-alpha` 作成（MSI + NSISインストーラー添付）
+
+**環境メモ:**
+- Git user: `pher-lab` / `onion.paradise@proton.me`（リポジトリローカル設定）
+- ビルドは管理者PowerShellが必要（SQLCipher関連）
+- `gh.exe` パス: `C:\Program Files\GitHub CLI\gh.exe`
+
 ## 完了したタスク
 
 - [x] プロジェクト構造の作成（Tauri + React + TypeScript）
@@ -141,10 +157,12 @@
 
 **リリース手順:**
 - [x] README.md作成
-- [ ] GitHubリポジトリ作成（private）・プッシュ
-- [ ] 実機での統合テスト（`npm run tauri:dev` で全画面フロー確認）
-- [ ] ビルド確認（`npm run tauri:build` でインストーラー生成）
-- [ ] GitHub Releaseでインストーラー配布（クローズドアルファ）
+- [x] GitHubリポジトリ作成（private）・プッシュ
+- [x] 実機での統合テスト（ドッグフーディング + 94テスト全パス）
+- [x] ビルド確認（`npm run tauri:build` — MSI + NSIS生成確認）
+- [x] GitHub Releaseでインストーラー配布（クローズドアルファ）
+
+**Phase 1 MVP — クローズドアルファ公開完了 (2026-02-10)**
 
 ### 将来の拡張オプション
 
