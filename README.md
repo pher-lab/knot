@@ -1,3 +1,5 @@
+[日本語](README.ja.md) | **English**
+
 # Knot
 
 **A knot only you can untie.**
