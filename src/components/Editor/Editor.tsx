@@ -5,9 +5,11 @@ import { markdown, deleteMarkupBackward } from "@codemirror/lang-markdown";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { tags } from "@lezer/highlight";
+import { save } from "@tauri-apps/api/dialog";
 import { useNotesStore } from "../../stores/notesStore";
 import { useThemeStore } from "../../stores/themeStore";
 import { useTranslation } from "../../i18n";
+import * as api from "../../lib/api";
 import { wikilink } from "./wikilink";
 import { Toolbar } from "./Toolbar";
 
@@ -265,6 +267,19 @@ const customMarkdownKeymap = keymap.of([
   },
 ]);
 
+function ExportIcon() {
+  return (
+    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+      />
+    </svg>
+  );
+}
+
 function TrashIcon() {
   return (
     <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -331,6 +346,22 @@ export function Editor() {
     if (!currentNote) return;
     if (window.confirm(t("editor.confirmDelete"))) {
       await deleteNote(currentNote.id);
+    }
+  };
+
+  const handleExport = async () => {
+    if (!currentNote) return;
+    try {
+      const noteTitle = currentNote.title || "Untitled";
+      const path = await save({
+        defaultPath: `${noteTitle}.md`,
+        filters: [{ name: "Markdown", extensions: ["md"] }],
+      });
+      if (!path) return;
+      await api.exportNote(currentNote.id, path);
+      alert(t("export.success"));
+    } catch {
+      alert(t("export.error"));
     }
   };
 
@@ -437,6 +468,13 @@ export function Editor() {
             placeholder={t("editor.titlePlaceholder")}
             className="flex-1 text-2xl font-bold bg-transparent border-none outline-none text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600"
           />
+          <button
+            onClick={handleExport}
+            className="p-2 text-gray-500 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-lg transition-colors"
+            title={t("editor.export")}
+          >
+            <ExportIcon />
+          </button>
           <button
             onClick={handleDelete}
             className="p-2 text-gray-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-lg transition-colors"

@@ -103,3 +103,16 @@ export async function loadSettings(): Promise<AppSettings> {
 export async function saveSettings(settings: AppSettings): Promise<boolean> {
   return invoke<boolean>("save_settings", { settings });
 }
+
+// Import/Export API
+export async function exportNote(noteId: string, filePath: string): Promise<void> {
+  return invoke<void>("export_note", { noteId, filePath });
+}
+
+export async function exportAllNotes(dirPath: string): Promise<number> {
+  return invoke<number>("export_all_notes", { dirPath });
+}
+
+export async function importNotes(filePaths: string[]): Promise<number> {
+  return invoke<number>("import_notes", { filePaths });
+}

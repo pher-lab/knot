@@ -25,6 +25,9 @@ fn main() {
             commands::notes::search_notes,
             commands::settings::load_settings,
             commands::settings::save_settings,
+            commands::export_import::export_note,
+            commands::export_import::export_all_notes,
+            commands::export_import::import_notes,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

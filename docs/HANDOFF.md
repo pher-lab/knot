@@ -2,11 +2,15 @@
 
 ## 現在の状態
 
+**現在バージョン**: v0.2.0 開発中（v0.1.0-alpha ベース）
+**前回リリース**: v0.1.0-alpha（2026-02-10）
+
 **プロジェクト初期化**: 完了
 **Rustバックエンド**: 基本実装完了（コンパイル成功）
 **フロントエンド**: 基本UI完成
-**テスト**: 94テスト全てパス（Rust 63 + Frontend 31）
+**テスト**: 102テスト全てパス（Rust 71 + Frontend 31）
 **セキュリティレビュー対応**: 推奨10項目+付随修正 完了
+**インポート/エクスポート**: 実装完了（.mdファイル対応）
 **Welcomeノート**: 実装完了
 **公開準備**: 完了
 **README**: 日英版完成（`README.md` 英語、`README.ja.md` 日本語）
@@ -15,7 +19,25 @@
 
 ## セッション履歴
 
-### 2026-02-10 (2): クローズドアルファ告知準備
+### 2026-02-16: インポート/エクスポート機能 `v0.2.0`
+- [x] Markdownファイル(.md)のインポート/エクスポート機能を実装
+  - **Rustバックエンド**: `src-tauri/src/commands/export_import.rs` 新規作成
+    - `export_note`: 単一ノートを.mdファイルとしてエクスポート
+    - `export_all_notes`: 全ノートをディレクトリに一括エクスポート（ファイル名衝突時は `(2)` サフィックス付与）
+    - `import_notes`: 複数.mdファイルをノートとしてインポート（ファイル名→タイトル）
+    - ファイル名サニタイズ（Windows禁止文字除去、空タイトル→"Untitled"）
+  - **Tauri設定**: `dialog.open`/`dialog.save` 許可追加、Cargo.tomlにfeature追加
+  - **フロントエンドAPI**: `src/lib/api.ts` に3関数追加
+  - **i18n**: インポート/エクスポート関連の翻訳キー追加（ja/en）
+  - **テスト**: ファイル名サニタイズ6件 + ファイルパス衝突3件 = 9件追加（Rust合計71テスト）
+- [x] UI配置リファクタリング（設定にアクションが混在する問題を修正）
+  - **歯車（設定）**: テーマ・自動ロック・言語のみ（ドロップダウン `left-0` で左端埋まり修正）
+  - **⋯（アクション）メニュー新設**: インポート + 全ノートエクスポート
+  - **鍵（Lock）**: 現状維持
+  - **エディタヘッダー**: 単一ノートエクスポートボタン追加（削除ボタンの左）
+- [x] 未使用翻訳キー削除（`sidebar.export`, `sidebar.exportCurrent`, `import.noFiles`）
+
+### 2026-02-10 (2): アルファ告知準備 `v0.1.0-alpha`
 - [x] リポジトリをprivate → **public** に変更
 - [x] Description・Topics設定（`encryption`, `privacy`, `note-taking`, `tauri`, `rust`, `e2e-encryption`）
 - [x] Private vulnerability reporting 有効化
@@ -30,7 +52,7 @@
 **環境メモ:**
 - Zennアカウント: `pher_lab`（Googleアカウント連携）
 
-### 2026-02-10 (1): クローズドアルファ公開
+### 2026-02-10 (1): アルファ公開 `v0.1.0-alpha`
 - [x] LICENSEファイル追加（AGPL-3.0全文）
 - [x] `.gitignore` 作成（node_modules, dist, .claude等）
 - [x] ゴミファイル削除（NUL, projectsknot-projectLICENSE）
@@ -46,6 +68,8 @@
 
 ## 完了したタスク
 
+### v0.1.0-alpha
+
 - [x] プロジェクト構造の作成（Tauri + React + TypeScript）
 - [x] 依存関係のインストール
 - [x] 暗号化モジュール実装
@@ -59,6 +83,7 @@
   - 認証: check_vault_exists, setup_vault, unlock_vault, lock_vault, recover_vault
   - ノート: create_note, get_note, update_note, delete_note, list_notes, search_notes
   - 設定: load_settings, save_settings
+  - インポート/エクスポート: export_note, export_all_notes, import_notes
 - [x] フロントエンドUI実装
   - `src/components/Auth/` - SetupScreen, UnlockScreen, RecoveryScreen, RecoveryKeyModal
   - `src/components/Editor/` - CodeMirrorエディタ（自動保存、削除機能付き）
@@ -83,7 +108,7 @@
 - [x] セキュリティレビュー対応（推奨10項目完了）
 - [x] Welcomeノート（初回セットアップ時に自動作成、日英対応）
 - [x] システムテーマ検出バグ修正（Tauri ネイティブ API に移行）
-- [x] README.md作成（クローズドアルファ向け英語版）
+- [x] README.md作成（アルファ向け英語版）
   - セキュリティ警告（監査未実施の明示）
   - セキュリティレビュー募集（responsible disclosure先を記載）
   - ロードマップ（Phase 1-4）
@@ -91,7 +116,7 @@
   - フィードバック先・連絡先（GitHub Issues + メール）
   - スクリーンショット3枚（`docs/screenshots/`）
 
-## 総合セキュリティレビュー結果（2026-02-09実施）
+## 総合セキュリティレビュー結果（2026-02-09実施、v0.1.0-alpha）
 
 全ファイルを対象にセキュリティ・操作性・コード品質の3方面から徹底レビューを実施。
 暗号化の基本設計（XChaCha20-Poly1305 + Argon2id + SQLCipher）は堅実。OsRng使用、パラメータ化クエリ、XSSリスクなし等、良好な実装も多い。
@@ -160,43 +185,41 @@
 - SQLCipher鍵処理: hex_keyが`Zeroizing`でラップ、中間Stringなしで構築
 - XSSリスクなし: `dangerouslySetInnerHTML`不使用
 - 機密データのログ出力なし: `console.log`等が一切なし
-- Tauri API最小権限: `"all": false`で`shell.open`のみ許可
+- Tauri API最小権限: `"all": false`で`shell.open`、`dialog.open`、`dialog.save`のみ許可
 - TypeScript strict mode: `any`型や安全でないキャストなし
 - 依存関係: 全暗号ライブラリがRustCryptoプロジェクト。バージョンも最新
 - `expect()`は全て証明可能に安全な操作のみ（HKDF 32byteは常に有効、Stringへのwrite等）
 
 ## 次にやるべきこと
 
-### Phase 1 MVP — クローズドアルファ公開完了 (2026-02-10)
+### v0.1.0-alpha — アルファ公開完了 (2026-02-10) ✅
 
 基本機能・セキュリティ対応・Welcomeノート・バグ修正すべて完了。
 残りの保留項目はリスク受容済み or 将来課題として整理済み。
 GitHub public化・Zenn記事公開・SECURITY.md・Issue templates 完了。
 
-### 次の開発方針
+### v0.2.0 — インポート/エクスポート & UX改善（次期リリース）
 
-**優先度1: インポート/エクスポート機能**
-- 新規ユーザーの導入障壁を下げるために最優先
-- Markdownファイルの入出力が最低限のスコープ
+**インポート/エクスポート機能** ✅ 完了
+- Markdownファイル(.md)のインポート/エクスポート実装済み
 
-**優先度2: 小さなUX改善（ドッグフーディングで発見）**
+**残: 小さなUX改善（ドッグフーディングで発見）**
 - タイトルフォーカス時に全選択（編集しやすくする）
 - ツールバーの空行適用時の選択状態修正
 - 検索完了時の表示ちらつき修正
 
-**優先度3: 中規模機能**
+### v0.3.0 — ノート管理強化（計画）
+
 - ノートリストの右クリックコンテキストメニュー（削除等）
 - ピン留め機能（重要なノートを常に上部に表示）
 
-**将来検討（要設計）**
+### 将来バージョン（未定）
+
+**機能拡張**
 - フォルダ/ラベル/タグによるノート整理（方式の選定が必要）
+- リアルタイムプレビュー（オプション）- Markdown→HTMLのライブプレビュー
 
-### 将来の拡張オプション
-
-1. **リアルタイムプレビュー**（オプション）- Markdown→HTMLのライブプレビュー
-
-### 将来課題（セキュリティレビュー由来）
-
+**セキュリティ改善（レビュー由来）**
 - ノートリスト復号のパフォーマンス最適化（M-4/M-5関連: タイトル別暗号化等）
 - パスワード強度メーターの改善（M-7: 辞書チェック等）
 - ロックアウト状態の永続化（H-3: ファイルベース保存）
@@ -204,8 +227,7 @@ GitHub public化・Zenn記事公開・SECURITY.md・Issue templates 完了。
 - リカバリーキーコピー後の視覚フィードバック（M-9）
 - カスタム削除確認ダイアログ（L-10）
 
-### 将来課題（その他）
-
+**その他**
 - エディタフォントサイズ設定
 - スペルチェック設定
 - Markdownリンク`[]()`のシンタックスハイライト調整（`[]`が灰色になる問題）
@@ -217,7 +239,7 @@ GitHub public化・Zenn記事公開・SECURITY.md・Issue templates 完了。
 | `docs/SPECIFICATION.md` | 仕様書（初期設計時点） |
 | `docs/DESIGN_DECISIONS.md` | 設計判断と変更点 |
 | `src-tauri/src/crypto/` | 暗号化モジュール |
-| `src-tauri/src/commands/` | Tauriコマンド |
+| `src-tauri/src/commands/` | Tauriコマンド（認証・ノート・設定・インポート/エクスポート） |
 | `src/App.tsx` | フロントエンドエントリーポイント |
 | `src/stores/` | Zustand状態管理 |
 | `src/stores/settingsHelper.ts` | 設定永続化ヘルパー（全ストアからRustへ保存） |
@@ -245,7 +267,7 @@ npm run tauri:build
 # Rustのみチェック
 cargo check --manifest-path src-tauri/Cargo.toml
 
-# Rustテスト（63テスト）
+# Rustテスト（71テスト）
 cargo test --manifest-path src-tauri/Cargo.toml
 
 # フロントエンドテスト（31テスト）
@@ -278,6 +300,7 @@ npx tsc --noEmit
 | recovery.rs | 3 | リカバリーキー生成・復元 |
 | database.rs | 6 | SQLCipher暗号化、CRUD |
 | settings.rs | 4 | 設定のシリアライズ・保存・読み込み |
+| export_import.rs | 8 | ファイル名サニタイズ、パス衝突処理 |
 | 統合テスト | 7 | フルフロー（パスワード→暗号化→復号）|
 | authStore | 18 | 認証フロー、画面遷移 |
 | notesStore | 13 | ノートCRUD、Wikiリンクナビ |

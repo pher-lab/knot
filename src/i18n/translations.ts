@@ -64,6 +64,7 @@ const ja = {
   "editor.saving": "保存中...",
   "editor.saved": "保存済み",
   "editor.contentPlaceholder": "ノートを書き始める...",
+  "editor.export": "エクスポート",
 
   // Toolbar
   "toolbar.bold": "太字 (Ctrl+B)",
@@ -90,6 +91,14 @@ const ja = {
   "sidebar.autoLockMinutes": "{n}分",
   "sidebar.language": "言語",
   "sidebar.languageSystem": "システム",
+  "sidebar.import": "インポート",
+  "sidebar.exportAll": "全ノートをエクスポート",
+  "import.success": "{n}件のノートをインポートしました",
+  "import.error": "インポートに失敗しました",
+  "export.success": "エクスポートが完了しました",
+  "export.successCount": "{n}件のノートをエクスポートしました",
+  "export.error": "エクスポートに失敗しました",
+  "export.noNotes": "エクスポートするノートがありません",
 
   // Search
   "search.placeholder": "検索...",
@@ -189,6 +198,7 @@ const en: Record<TranslationKey, string> = {
   "editor.saving": "Saving...",
   "editor.saved": "Saved",
   "editor.contentPlaceholder": "Start writing...",
+  "editor.export": "Export",
 
   // Toolbar
   "toolbar.bold": "Bold (Ctrl+B)",
@@ -215,6 +225,14 @@ const en: Record<TranslationKey, string> = {
   "sidebar.autoLockMinutes": "{n} min",
   "sidebar.language": "Language",
   "sidebar.languageSystem": "System",
+  "sidebar.import": "Import",
+  "sidebar.exportAll": "Export all notes",
+  "import.success": "Imported {n} notes",
+  "import.error": "Import failed",
+  "export.success": "Export completed",
+  "export.successCount": "Exported {n} notes",
+  "export.error": "Export failed",
+  "export.noNotes": "No notes to export",
 
   // Search
   "search.placeholder": "Search...",

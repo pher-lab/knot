@@ -1,9 +1,11 @@
 import { useEffect, useState, useRef } from "react";
+import { open } from "@tauri-apps/api/dialog";
 import { useNotesStore } from "../../stores/notesStore";
 import { useAuthStore } from "../../stores/authStore";
 import { useThemeStore, Theme } from "../../stores/themeStore";
 import { useLanguageStore, Language } from "../../stores/languageStore";
 import { useTranslation } from "../../i18n";
+import * as api from "../../lib/api";
 import { NoteList } from "./NoteList";
 import { SearchBar } from "./SearchBar";
 
@@ -15,20 +17,25 @@ export function Sidebar() {
   const { t } = useTranslation();
   const [isCreating, setIsCreating] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showActions, setShowActions] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
+  const actionsRef = useRef<HTMLDivElement>(null);
 
-  // Close settings when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
         setShowSettings(false);
       }
+      if (actionsRef.current && !actionsRef.current.contains(e.target as Node)) {
+        setShowActions(false);
+      }
     };
-    if (showSettings) {
+    if (showSettings || showActions) {
       document.addEventListener("mousedown", handleClickOutside);
     }
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showSettings]);
+  }, [showSettings, showActions]);
 
   useEffect(() => {
     loadNotes();
@@ -40,6 +47,40 @@ export function Sidebar() {
     setIsCreating(false);
   };
 
+  const handleImport = async () => {
+    try {
+      const files = await open({
+        multiple: true,
+        filters: [{ name: "Markdown", extensions: ["md"] }],
+      });
+      if (!files) return;
+      const filePaths = Array.isArray(files) ? files : [files];
+      if (filePaths.length === 0) return;
+      const count = await api.importNotes(filePaths);
+      await loadNotes();
+      setShowActions(false);
+      alert(t("import.success", { n: count }));
+    } catch {
+      alert(t("import.error"));
+    }
+  };
+
+  const handleExportAll = async () => {
+    if (notes.length === 0) {
+      alert(t("export.noNotes"));
+      return;
+    }
+    try {
+      const dir = await open({ directory: true });
+      if (!dir || Array.isArray(dir)) return;
+      const count = await api.exportAllNotes(dir);
+      setShowActions(false);
+      alert(t("export.successCount", { n: count }));
+    } catch {
+      alert(t("export.error"));
+    }
+  };
+
   return (
     <div className="w-64 bg-gray-200 dark:bg-gray-800 border-r border-gray-300 dark:border-gray-700 flex flex-col h-screen">
       {/* Header */}
@@ -49,14 +90,14 @@ export function Sidebar() {
           <div className="flex items-center gap-1">
             <div className="relative" ref={settingsRef}>
               <button
-                onClick={() => setShowSettings(!showSettings)}
+                onClick={() => { setShowSettings(!showSettings); setShowActions(false); }}
                 className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-300 dark:hover:bg-gray-700 rounded transition-colors"
                 title={t("sidebar.settings")}
               >
                 <SettingsIcon />
               </button>
               {showSettings && (
-                <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-700 rounded-lg shadow-lg py-2 z-10 border border-gray-200 dark:border-gray-600">
+                <div className="absolute left-0 mt-1 w-48 bg-white dark:bg-gray-700 rounded-lg shadow-lg py-2 z-10 border border-gray-200 dark:border-gray-600">
                   <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-600">
                     <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("sidebar.theme")}</label>
                     <select
@@ -96,6 +137,32 @@ export function Sidebar() {
                       <option value="en">English</option>
                     </select>
                   </div>
+                </div>
+              )}
+            </div>
+            <div className="relative" ref={actionsRef}>
+              <button
+                onClick={() => { setShowActions(!showActions); setShowSettings(false); }}
+                className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-300 dark:hover:bg-gray-700 rounded transition-colors"
+                title={t("sidebar.import")}
+              >
+                <MoreIcon />
+              </button>
+              {showActions && (
+                <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-700 rounded-lg shadow-lg py-1 z-10 border border-gray-200 dark:border-gray-600">
+                  <button
+                    onClick={handleImport}
+                    className="w-full text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 px-3 py-2 transition-colors"
+                  >
+                    {t("sidebar.import")}
+                  </button>
+                  <button
+                    onClick={handleExportAll}
+                    disabled={notes.length === 0}
+                    className="w-full text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 px-3 py-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {t("sidebar.exportAll")}
+                  </button>
                 </div>
               )}
             </div>
@@ -150,6 +217,19 @@ function SettingsIcon() {
         strokeLinejoin="round"
         strokeWidth={2}
         d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+      />
+    </svg>
+  );
+}
+
+function MoreIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
       />
     </svg>
   );
