@@ -33,9 +33,20 @@ interface NotesState {
   // Pending save management
   setPendingSave: (data: PendingSave | null) => void;
   flushPendingSave: () => Promise<void>;
+  // Pin
+  togglePin: (id: string) => Promise<void>;
   // Wiki link helpers
   findNoteByTitle: (title: string) => NoteListItem | undefined;
   navigateToNoteByTitle: (title: string) => Promise<void>;
+}
+
+function sortNotes(notes: NoteListItem[]) {
+  notes.sort((a, b) => {
+    // Pinned notes first
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+    // Then by updated_at descending
+    return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+  });
 }
 
 export const useNotesStore = create<NotesState>((set, get) => ({
@@ -53,11 +64,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const notes = await api.listNotes();
-      // Sort by updated_at descending
-      notes.sort(
-        (a, b) =>
-          new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-      );
+      sortNotes(notes);
       set({ notes, isLoading: false });
     } catch (e) {
       set({ error: String(e), isLoading: false });
@@ -89,6 +96,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
         title: note.title,
         created_at: note.created_at,
         updated_at: note.updated_at,
+        pinned: false,
       };
       set({
         notes: [newItem, ...notes],
@@ -113,11 +121,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
           ? { ...n, title: note.title, updated_at: note.updated_at }
           : n
       );
-      // Re-sort by updated_at
-      updatedNotes.sort(
-        (a, b) =>
-          new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-      );
+      sortNotes(updatedNotes);
       set({
         notes: updatedNotes,
         // Only update currentNote if we're still viewing the same note
@@ -154,10 +158,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
     set({ searchQuery: query, isLoading: true, error: null });
     try {
       const notes = await api.searchNotes(query);
-      notes.sort(
-        (a, b) =>
-          new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-      );
+      sortNotes(notes);
       set({ notes, isLoading: false });
     } catch (e) {
       set({ error: String(e), isLoading: false });
@@ -202,6 +203,20 @@ export const useNotesStore = create<NotesState>((set, get) => ({
     return notes.find((n) => n.title.toLowerCase() === lowerTitle);
   },
 
+  togglePin: async (id: string) => {
+    try {
+      const newPinned = await api.togglePinNote(id);
+      const { notes } = get();
+      const updatedNotes = notes.map((n) =>
+        n.id === id ? { ...n, pinned: newPinned } : n
+      );
+      sortNotes(updatedNotes);
+      set({ notes: updatedNotes });
+    } catch (e) {
+      set({ error: String(e) });
+    }
+  },
+
   createNoteWithTitle: async (title: string) => {
     set({ isSaving: true, error: null });
     try {
@@ -212,6 +227,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
         title: note.title,
         created_at: note.created_at,
         updated_at: note.updated_at,
+        pinned: false,
       };
       set({
         notes: [newItem, ...notes],

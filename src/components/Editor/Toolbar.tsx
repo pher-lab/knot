@@ -44,8 +44,11 @@ function toggleList(view: EditorView, marker: string) {
   if (match) {
     // Remove the marker
     const indent = match[1];
+    const cursorOffset = from - line.from;
+    const newCursorOffset = Math.max(indent.length, cursorOffset - marker.length + indent.length);
     view.dispatch({
       changes: { from: line.from, to: line.from + indent.length + marker.length, insert: indent },
+      selection: EditorSelection.cursor(line.from + Math.min(newCursorOffset, indent.length + lineText.length - indent.length - marker.length)),
     });
   } else {
     // Check if line has a different list marker and replace it
@@ -53,12 +56,15 @@ function toggleList(view: EditorView, marker: string) {
     if (anyListMatch) {
       const indent = anyListMatch[1];
       const existingMarker = anyListMatch[2] + " ";
+      const cursorOffset = from - line.from;
+      const newCursorOffset = cursorOffset - existingMarker.length + marker.length;
       view.dispatch({
         changes: {
           from: line.from + indent.length,
           to: line.from + indent.length + existingMarker.length,
           insert: marker,
         },
+        selection: EditorSelection.cursor(line.from + Math.max(indent.length + marker.length, newCursorOffset)),
       });
     } else {
       // Add marker at line start (after existing indentation)
@@ -66,6 +72,7 @@ function toggleList(view: EditorView, marker: string) {
       const indent = indentMatch ? indentMatch[1] : "";
       view.dispatch({
         changes: { from: line.from + indent.length, to: line.from + indent.length, insert: marker },
+        selection: EditorSelection.cursor(from + marker.length),
       });
     }
   }
@@ -132,19 +139,23 @@ function cycleHeading(view: EditorView) {
     const currentLevel = headingMatch[1].length;
     if (currentLevel >= 3) {
       // Remove heading
+      const removed = currentLevel + 1; // "### " length
       view.dispatch({
-        changes: { from: line.from, to: line.from + currentLevel + 1, insert: "" },
+        changes: { from: line.from, to: line.from + removed, insert: "" },
+        selection: EditorSelection.cursor(Math.max(line.from, from - removed)),
       });
     } else {
-      // Increase level
+      // Increase level (add one #)
       view.dispatch({
         changes: { from: line.from, to: line.from + currentLevel, insert: "#".repeat(currentLevel + 1) },
+        selection: EditorSelection.cursor(from + 1),
       });
     }
   } else {
     // Add H1
     view.dispatch({
       changes: { from: line.from, to: line.from, insert: "# " },
+      selection: EditorSelection.cursor(from + 2),
     });
   }
   view.focus();

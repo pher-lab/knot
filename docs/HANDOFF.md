@@ -19,6 +19,25 @@
 
 ## セッション履歴
 
+### 2026-02-17: UX改善 & ノート管理強化 `v0.2.0`
+- [x] タイトルフォーカス時に全選択（`Editor.tsx`: `onFocus={(e) => e.target.select()}`）
+- [x] ツールバーの空行適用時の選択状態修正（`Toolbar.tsx`: `toggleList`/`cycleHeading`で全ケースに`selection`を明示設定）
+- [x] 検索完了時の表示ちらつき修正（`SearchBar.tsx`: useEffectの依存配列から`searchQuery`を除去しフィードバックループ解消）
+- [x] ピン留め機能
+  - **DB**: `pinned`カラム追加（既存DB自動マイグレーション、`database.rs`の`init_schema`）
+  - **ストレージ**: `set_note_pinned`メソッド追加、`list_notes`をピン優先→更新日時順に変更
+  - **コマンド**: `toggle_pin_note`追加（`commands/notes.rs`）、`NoteListItem`に`pinned`フィールド追加
+  - **フロントエンドAPI**: `togglePinNote`追加（`api.ts`）
+  - **ストア**: `togglePin`アクション追加、`sortNotes`共通関数でピン優先ソート（`notesStore.ts`）
+  - **エディタ**: ピンボタン追加（エクスポートの左、ピン済みは青色塗りつぶし）
+  - **i18n**: `editor.pin`/`editor.unpin`翻訳キー追加
+- [x] ノートリストの右クリックコンテキストメニュー（`NoteList.tsx`）
+  - ピン留め/解除、エクスポート、削除（赤色＋区切り線）
+  - クリック外で自動閉じ、fixed positioning
+  - **i18n**: `contextMenu.pin`/`unpin`/`delete`/`export`翻訳キー追加
+- [x] ピン留めノートにピンアイコン表示（NoteItem）
+- [x] テストモックデータに`pinned`フィールド追加（`notesStore.test.ts`）
+
 ### 2026-02-16: インポート/エクスポート機能 `v0.2.0`
 - [x] Markdownファイル(.md)のインポート/エクスポート機能を実装
   - **Rustバックエンド**: `src-tauri/src/commands/export_import.rs` 新規作成
@@ -81,7 +100,7 @@
   - ノートCRUD操作
 - [x] Tauriコマンド実装
   - 認証: check_vault_exists, setup_vault, unlock_vault, lock_vault, recover_vault
-  - ノート: create_note, get_note, update_note, delete_note, list_notes, search_notes
+  - ノート: create_note, get_note, update_note, delete_note, list_notes, search_notes, toggle_pin_note
   - 設定: load_settings, save_settings
   - インポート/エクスポート: export_note, export_all_notes, import_notes
 - [x] フロントエンドUI実装
@@ -198,20 +217,12 @@
 残りの保留項目はリスク受容済み or 将来課題として整理済み。
 GitHub public化・Zenn記事公開・SECURITY.md・Issue templates 完了。
 
-### v0.2.0 — インポート/エクスポート & UX改善（次期リリース）
+### v0.2.0 — インポート/エクスポート & UX改善 & ノート管理強化 ✅
 
-**インポート/エクスポート機能** ✅ 完了
-- Markdownファイル(.md)のインポート/エクスポート実装済み
-
-**残: 小さなUX改善（ドッグフーディングで発見）**
-- タイトルフォーカス時に全選択（編集しやすくする）
-- ツールバーの空行適用時の選択状態修正
-- 検索完了時の表示ちらつき修正
-
-### v0.3.0 — ノート管理強化（計画）
-
-- ノートリストの右クリックコンテキストメニュー（削除等）
-- ピン留め機能（重要なノートを常に上部に表示）
+- Markdownファイル(.md)のインポート/エクスポート
+- UX改善: タイトル全選択、ツールバー選択状態修正、検索ちらつき修正
+- ピン留め機能（DB・バックエンド・フロントエンド・エディタボタン）
+- ノートリスト右クリックコンテキストメニュー
 
 ### 将来バージョン（未定）
 

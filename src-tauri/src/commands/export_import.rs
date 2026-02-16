@@ -162,6 +162,7 @@ pub fn import_notes(
             encrypted_data,
             created_at: note.created_at,
             updated_at: note.updated_at,
+            pinned: false,
         };
 
         db.save_note(&encrypted_note).map_err(|e| e.to_string())?;

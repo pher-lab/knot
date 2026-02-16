@@ -23,6 +23,7 @@ fn main() {
             commands::notes::delete_note,
             commands::notes::list_notes,
             commands::notes::search_notes,
+            commands::notes::toggle_pin_note,
             commands::settings::load_settings,
             commands::settings::save_settings,
             commands::export_import::export_note,

@@ -25,6 +25,7 @@ export interface NoteListItem {
   title: string;
   created_at: string;
   updated_at: string;
+  pinned: boolean;
 }
 
 // Auth API
@@ -115,4 +116,9 @@ export async function exportAllNotes(dirPath: string): Promise<number> {
 
 export async function importNotes(filePaths: string[]): Promise<number> {
   return invoke<number>("import_notes", { filePaths });
+}
+
+// Pin API
+export async function togglePinNote(id: string): Promise<boolean> {
+  return invoke<boolean>("toggle_pin_note", { id });
 }

@@ -84,6 +84,17 @@ impl Database {
             CREATE INDEX IF NOT EXISTS idx_notes_updated_at ON notes(updated_at DESC);
             "#,
         )?;
+
+        // Migration: add pinned column if not exists
+        let has_pinned: bool = conn
+            .prepare("SELECT COUNT(*) FROM pragma_table_info('notes') WHERE name = 'pinned'")?
+            .query_row([], |row| row.get::<_, i64>(0))
+            .map(|count| count > 0)?;
+
+        if !has_pinned {
+            conn.execute_batch("ALTER TABLE notes ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0")?;
+        }
+
         Ok(())
     }
 

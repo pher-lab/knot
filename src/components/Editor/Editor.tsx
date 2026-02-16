@@ -267,6 +267,18 @@ const customMarkdownKeymap = keymap.of([
   },
 ]);
 
+function PinIcon({ filled }: { filled: boolean }) {
+  return filled ? (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z" />
+    </svg>
+  ) : (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z" />
+    </svg>
+  );
+}
+
 function ExportIcon() {
   return (
     <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -294,7 +306,7 @@ function TrashIcon() {
 }
 
 export function Editor() {
-  const { currentNote, updateNote, deleteNote, isSaving, pendingSave, setPendingSave, navigateToNoteByTitle } = useNotesStore();
+  const { currentNote, updateNote, deleteNote, togglePin, notes, isSaving, pendingSave, setPendingSave, navigateToNoteByTitle } = useNotesStore();
   const resolvedTheme = useThemeStore((s) => s.resolvedTheme);
   const { t } = useTranslation();
   const editorRef = useRef<HTMLDivElement>(null);
@@ -448,6 +460,8 @@ export function Editor() {
     }
   }, [currentNote?.id]);
 
+  const isPinned = currentNote ? !!notes.find((n) => n.id === currentNote.id)?.pinned : false;
+
   if (!currentNote) {
     return (
       <div className="flex-1 bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
@@ -465,9 +479,21 @@ export function Editor() {
             type="text"
             value={title}
             onChange={handleTitleChange}
+            onFocus={(e) => e.target.select()}
             placeholder={t("editor.titlePlaceholder")}
             className="flex-1 text-2xl font-bold bg-transparent border-none outline-none text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600"
           />
+          <button
+            onClick={() => togglePin(currentNote.id)}
+            className={`p-2 rounded-lg transition-colors ${
+              isPinned
+                ? "text-blue-500 dark:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-800"
+                : "text-gray-500 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-800"
+            }`}
+            title={isPinned ? t("editor.unpin") : t("editor.pin")}
+          >
+            <PinIcon filled={isPinned} />
+          </button>
           <button
             onClick={handleExport}
             className="p-2 text-gray-500 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-lg transition-colors"

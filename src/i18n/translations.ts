@@ -64,6 +64,8 @@ const ja = {
   "editor.saving": "保存中...",
   "editor.saved": "保存済み",
   "editor.contentPlaceholder": "ノートを書き始める...",
+  "editor.pin": "ピン留め",
+  "editor.unpin": "ピン留め解除",
   "editor.export": "エクスポート",
 
   // Toolbar
@@ -99,6 +101,12 @@ const ja = {
   "export.successCount": "{n}件のノートをエクスポートしました",
   "export.error": "エクスポートに失敗しました",
   "export.noNotes": "エクスポートするノートがありません",
+
+  // Context Menu
+  "contextMenu.pin": "ピン留め",
+  "contextMenu.unpin": "ピン留め解除",
+  "contextMenu.delete": "削除",
+  "contextMenu.export": "エクスポート",
 
   // Search
   "search.placeholder": "検索...",
@@ -198,6 +206,8 @@ const en: Record<TranslationKey, string> = {
   "editor.saving": "Saving...",
   "editor.saved": "Saved",
   "editor.contentPlaceholder": "Start writing...",
+  "editor.pin": "Pin",
+  "editor.unpin": "Unpin",
   "editor.export": "Export",
 
   // Toolbar
@@ -233,6 +243,12 @@ const en: Record<TranslationKey, string> = {
   "export.successCount": "Exported {n} notes",
   "export.error": "Export failed",
   "export.noNotes": "No notes to export",
+
+  // Context Menu
+  "contextMenu.pin": "Pin",
+  "contextMenu.unpin": "Unpin",
+  "contextMenu.delete": "Delete",
+  "contextMenu.export": "Export",
 
   // Search
   "search.placeholder": "Search...",

@@ -32,6 +32,7 @@ pub struct EncryptedNote {
     pub encrypted_data: Vec<u8>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub pinned: bool,
 }
 
 /// Note metadata for listing (no content)

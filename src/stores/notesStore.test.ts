@@ -27,9 +27,9 @@ describe("notesStore", () => {
   describe("loadNotes", () => {
     it("should load and sort notes by updated_at", async () => {
       const mockNotes = [
-        { id: "1", title: "Note 1", created_at: "2024-01-01", updated_at: "2024-01-01" },
-        { id: "2", title: "Note 2", created_at: "2024-01-02", updated_at: "2024-01-03" },
-        { id: "3", title: "Note 3", created_at: "2024-01-01", updated_at: "2024-01-02" },
+        { id: "1", title: "Note 1", created_at: "2024-01-01", pinned: false, updated_at: "2024-01-01" },
+        { id: "2", title: "Note 2", created_at: "2024-01-02", pinned: false, updated_at: "2024-01-03" },
+        { id: "3", title: "Note 3", created_at: "2024-01-01", pinned: false, updated_at: "2024-01-02" },
       ];
       mockInvoke.mockResolvedValueOnce(mockNotes);
 
@@ -108,8 +108,8 @@ describe("notesStore", () => {
   describe("updateNote", () => {
     it("should update note and re-sort list", async () => {
       const initialNotes = [
-        { id: "1", title: "Note 1", created_at: "2024-01-01", updated_at: "2024-01-01" },
-        { id: "2", title: "Note 2", created_at: "2024-01-01", updated_at: "2024-01-02" },
+        { id: "1", title: "Note 1", created_at: "2024-01-01", pinned: false, updated_at: "2024-01-01" },
+        { id: "2", title: "Note 2", created_at: "2024-01-01", pinned: false, updated_at: "2024-01-02" },
       ];
       useNotesStore.setState({ notes: initialNotes, selectedNoteId: "1" });
 
@@ -139,8 +139,8 @@ describe("notesStore", () => {
       };
       useNotesStore.setState({
         notes: [
-          { id: "1", title: "Note 1", created_at: "2024-01-01", updated_at: "2024-01-01" },
-          { id: "2", title: "Note 2", created_at: "2024-01-01", updated_at: "2024-01-01" },
+          { id: "1", title: "Note 1", created_at: "2024-01-01", pinned: false, updated_at: "2024-01-01" },
+          { id: "2", title: "Note 2", created_at: "2024-01-01", pinned: false, updated_at: "2024-01-01" },
         ],
         selectedNoteId: "2",
         currentNote,
@@ -167,8 +167,8 @@ describe("notesStore", () => {
     it("should remove note from list", async () => {
       useNotesStore.setState({
         notes: [
-          { id: "1", title: "Note 1", created_at: "2024-01-01", updated_at: "2024-01-01" },
-          { id: "2", title: "Note 2", created_at: "2024-01-01", updated_at: "2024-01-01" },
+          { id: "1", title: "Note 1", created_at: "2024-01-01", pinned: false, updated_at: "2024-01-01" },
+          { id: "2", title: "Note 2", created_at: "2024-01-01", pinned: false, updated_at: "2024-01-01" },
         ],
         selectedNoteId: "1",
       });
@@ -187,8 +187,8 @@ describe("notesStore", () => {
     it("should find note by title (case-insensitive)", () => {
       useNotesStore.setState({
         notes: [
-          { id: "1", title: "My Note", created_at: "2024-01-01", updated_at: "2024-01-01" },
-          { id: "2", title: "Another Note", created_at: "2024-01-01", updated_at: "2024-01-01" },
+          { id: "1", title: "My Note", created_at: "2024-01-01", pinned: false, updated_at: "2024-01-01" },
+          { id: "2", title: "Another Note", created_at: "2024-01-01", pinned: false, updated_at: "2024-01-01" },
         ],
       });
 
@@ -199,7 +199,7 @@ describe("notesStore", () => {
     it("should return undefined if not found", () => {
       useNotesStore.setState({
         notes: [
-          { id: "1", title: "My Note", created_at: "2024-01-01", updated_at: "2024-01-01" },
+          { id: "1", title: "My Note", created_at: "2024-01-01", pinned: false, updated_at: "2024-01-01" },
         ],
       });
 
@@ -219,7 +219,7 @@ describe("notesStore", () => {
       };
       useNotesStore.setState({
         notes: [
-          { id: "1", title: "Existing Note", created_at: "2024-01-01", updated_at: "2024-01-01" },
+          { id: "1", title: "Existing Note", created_at: "2024-01-01", pinned: false, updated_at: "2024-01-01" },
         ],
       });
       mockInvoke.mockResolvedValueOnce(existingNote);
@@ -252,7 +252,7 @@ describe("notesStore", () => {
   describe("reset", () => {
     it("should reset all state", () => {
       useNotesStore.setState({
-        notes: [{ id: "1", title: "Note", created_at: "", updated_at: "" }],
+        notes: [{ id: "1", title: "Note", created_at: "", pinned: false, updated_at: "" }],
         selectedNoteId: "1",
         currentNote: { id: "1", title: "Note", content: "", created_at: "", updated_at: "" },
         searchQuery: "test",

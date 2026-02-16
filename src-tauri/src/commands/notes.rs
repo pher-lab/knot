@@ -35,6 +35,7 @@ pub struct NoteListItem {
     pub title: String,
     pub created_at: String,
     pub updated_at: String,
+    pub pinned: bool,
 }
 
 /// Create a new note
@@ -62,6 +63,7 @@ pub fn create_note(
         encrypted_data,
         created_at: note.created_at,
         updated_at: note.updated_at,
+        pinned: false,
     };
 
     db.save_note(&encrypted_note).map_err(|e| e.to_string())?;
@@ -127,12 +129,13 @@ pub fn update_note(
     let note_json = serde_json::to_vec(&note).map_err(|e| e.to_string())?;
     let new_encrypted_data = encrypt(&note_json, &**dek).map_err(|e| e.to_string())?;
 
-    // Save to database
+    // Save to database (preserve pinned state)
     let new_encrypted_note = EncryptedNote {
         id: note.id,
         encrypted_data: new_encrypted_data,
         created_at: note.created_at,
         updated_at: note.updated_at,
+        pinned: encrypted_note.pinned,
     };
 
     db.save_note(&new_encrypted_note).map_err(|e| e.to_string())?;
@@ -189,6 +192,7 @@ pub fn list_notes(state: State<'_, StateWrapper>) -> Result<Vec<NoteListItem>, S
             title: note.title,
             created_at: note.created_at.to_rfc3339(),
             updated_at: note.updated_at.to_rfc3339(),
+            pinned: enc.pinned,
         });
     }
 
@@ -234,9 +238,36 @@ pub fn search_notes(
                 title: note.title,
                 created_at: note.created_at.to_rfc3339(),
                 updated_at: note.updated_at.to_rfc3339(),
+                pinned: enc.pinned,
             });
         }
     }
 
     Ok(items)
+}
+
+/// Toggle pin state for a note
+#[tauri::command]
+pub fn toggle_pin_note(
+    state: State<'_, StateWrapper>,
+    id: String,
+) -> Result<bool, String> {
+    let app_state = state.lock().map_err(|_| "Failed to lock state")?;
+
+    let db = app_state.db.as_ref().ok_or("Vault is locked")?;
+
+    let uuid = Uuid::parse_str(&id).map_err(|_| "Invalid note ID")?;
+
+    // Get current pinned state
+    let encrypted_note = db
+        .get_note(&uuid)
+        .map_err(|e| e.to_string())?
+        .ok_or("Note not found")?;
+
+    let new_pinned = !encrypted_note.pinned;
+
+    db.set_note_pinned(&uuid, new_pinned)
+        .map_err(|e| e.to_string())?;
+
+    Ok(new_pinned)
 }

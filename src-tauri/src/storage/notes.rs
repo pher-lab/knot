@@ -10,6 +10,7 @@ fn row_to_encrypted_note(row: &Row<'_>) -> Result<EncryptedNote, rusqlite::Error
     let encrypted_data: Vec<u8> = row.get(1)?;
     let created_at_str: String = row.get(2)?;
     let updated_at_str: String = row.get(3)?;
+    let pinned: i64 = row.get(4)?;
 
     let id = Uuid::parse_str(&id_str).map_err(|e| {
         rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
@@ -32,6 +33,7 @@ fn row_to_encrypted_note(row: &Row<'_>) -> Result<EncryptedNote, rusqlite::Error
         encrypted_data,
         created_at,
         updated_at,
+        pinned: pinned != 0,
     })
 }
 
@@ -39,8 +41,8 @@ impl Database {
     pub fn save_note(&self, note: &EncryptedNote) -> Result<(), rusqlite::Error> {
         self.connection().execute(
             r#"
-            INSERT INTO notes (id, encrypted_data, created_at, updated_at)
-            VALUES (?1, ?2, ?3, ?4)
+            INSERT INTO notes (id, encrypted_data, created_at, updated_at, pinned)
+            VALUES (?1, ?2, ?3, ?4, ?5)
             ON CONFLICT(id) DO UPDATE SET
                 encrypted_data = excluded.encrypted_data,
                 updated_at = excluded.updated_at
@@ -50,6 +52,7 @@ impl Database {
                 &note.encrypted_data,
                 note.created_at.to_rfc3339(),
                 note.updated_at.to_rfc3339(),
+                note.pinned as i64,
             ],
         )?;
         Ok(())
@@ -57,7 +60,7 @@ impl Database {
 
     pub fn get_note(&self, id: &Uuid) -> Result<Option<EncryptedNote>, rusqlite::Error> {
         let mut stmt = self.connection().prepare(
-            "SELECT id, encrypted_data, created_at, updated_at FROM notes WHERE id = ?1",
+            "SELECT id, encrypted_data, created_at, updated_at, pinned FROM notes WHERE id = ?1",
         )?;
 
         let note = stmt.query_row(params![id.to_string()], row_to_encrypted_note);
@@ -78,11 +81,19 @@ impl Database {
 
     pub fn list_notes(&self) -> Result<Vec<EncryptedNote>, rusqlite::Error> {
         let mut stmt = self.connection().prepare(
-            "SELECT id, encrypted_data, created_at, updated_at FROM notes ORDER BY updated_at DESC",
+            "SELECT id, encrypted_data, created_at, updated_at, pinned FROM notes ORDER BY pinned DESC, updated_at DESC",
         )?;
 
         let notes = stmt.query_map([], row_to_encrypted_note)?;
 
         notes.collect()
+    }
+
+    pub fn set_note_pinned(&self, id: &Uuid, pinned: bool) -> Result<bool, rusqlite::Error> {
+        let rows = self.connection().execute(
+            "UPDATE notes SET pinned = ?1 WHERE id = ?2",
+            params![pinned as i64, id.to_string()],
+        )?;
+        Ok(rows > 0)
     }
 }

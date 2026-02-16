@@ -15,13 +15,13 @@ export function SearchBar() {
     const timer = setTimeout(() => {
       if (query) {
         search(query);
-      } else if (searchQuery) {
+      } else if (useNotesStore.getState().searchQuery) {
         clearSearch();
       }
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [query, search, clearSearch, searchQuery]);
+  }, [query, search, clearSearch]);
 
   return (
     <div className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg">
