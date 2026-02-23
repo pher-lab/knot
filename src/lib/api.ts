@@ -58,6 +58,16 @@ export async function recoverVault(
   return invoke<AuthResult>("recover_vault", { mnemonic, newPassword });
 }
 
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<AuthResult> {
+  return invoke<AuthResult>("change_password", {
+    currentPassword,
+    newPassword,
+  });
+}
+
 // Notes API
 export async function createNote(
   title: string,

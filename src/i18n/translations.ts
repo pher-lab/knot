@@ -125,6 +125,22 @@ const ja = {
   "password.veryStrong": "とても強い",
 
   // Backend Errors
+  // Change Password
+  "changePassword.title": "パスワードを変更",
+  "changePassword.currentPassword": "現在のパスワード",
+  "changePassword.currentPlaceholder": "現在のパスワードを入力",
+  "changePassword.newPassword": "新しいパスワード",
+  "changePassword.newPlaceholder": "8文字以上",
+  "changePassword.confirmPassword": "パスワード確認",
+  "changePassword.confirmPlaceholder": "もう一度入力",
+  "changePassword.changing": "変更中...",
+  "changePassword.change": "パスワードを変更",
+  "changePassword.cancel": "キャンセル",
+  "changePassword.success": "パスワードを変更しました",
+  "changePassword.validationMinLength": "パスワードは8文字以上必要です",
+  "changePassword.validationMismatch": "パスワードが一致しません",
+
+  // Backend Errors
   "backendError.invalidPassword": "パスワードが正しくありません",
   "backendError.invalidPasswordWithAttempts": "パスワードが正しくありません。残り{n}回",
   "backendError.tooManyAttempts": "試行回数が上限に達しました",
@@ -265,6 +281,22 @@ const en: Record<TranslationKey, string> = {
   "password.fair": "Fair",
   "password.strong": "Strong",
   "password.veryStrong": "Very strong",
+
+  // Backend Errors
+  // Change Password
+  "changePassword.title": "Change Password",
+  "changePassword.currentPassword": "Current Password",
+  "changePassword.currentPlaceholder": "Enter current password",
+  "changePassword.newPassword": "New Password",
+  "changePassword.newPlaceholder": "8 characters or more",
+  "changePassword.confirmPassword": "Confirm Password",
+  "changePassword.confirmPlaceholder": "Enter again",
+  "changePassword.changing": "Changing...",
+  "changePassword.change": "Change Password",
+  "changePassword.cancel": "Cancel",
+  "changePassword.success": "Password changed successfully",
+  "changePassword.validationMinLength": "Password must be at least 8 characters",
+  "changePassword.validationMismatch": "Passwords do not match",
 
   // Backend Errors
   "backendError.invalidPassword": "Invalid password",

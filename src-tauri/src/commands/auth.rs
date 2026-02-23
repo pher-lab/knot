@@ -234,6 +234,109 @@ pub fn lock_vault(state: State<'_, StateWrapper>) -> Result<bool, String> {
     Ok(true)
 }
 
+/// Change the vault password (must be unlocked)
+#[tauri::command]
+pub fn change_password(
+    state: State<'_, StateWrapper>,
+    current_password: String,
+    new_password: String,
+) -> Result<AuthResult, String> {
+    // Must be unlocked to change password
+    {
+        let app_state = state.lock().map_err(|_| "Failed to lock state")?;
+        if !app_state.is_unlocked() {
+            return Ok(AuthResult {
+                success: false,
+                error: Some("Vault is not unlocked".to_string()),
+                lockout_seconds: None,
+            });
+        }
+    }
+
+    // Validate new password length
+    if new_password.len() < MIN_PASSWORD_LENGTH {
+        return Ok(AuthResult {
+            success: false,
+            error: Some(format!(
+                "Password must be at least {} characters",
+                MIN_PASSWORD_LENGTH
+            )),
+            lockout_seconds: None,
+        });
+    }
+
+    let knot_dir = get_knot_dir()?;
+
+    // Read current salt
+    let salt_bytes =
+        std::fs::read(knot_dir.join("salt.bin")).map_err(|_| "Failed to read salt")?;
+
+    if salt_bytes.len() != 32 {
+        return Ok(AuthResult {
+            success: false,
+            error: Some("Invalid salt".to_string()),
+            lockout_seconds: None,
+        });
+    }
+
+    let mut salt = [0u8; 32];
+    salt.copy_from_slice(&salt_bytes);
+
+    // Derive master key from current password
+    let master_key = derive_key(current_password.as_bytes(), &salt).map_err(|e| e.to_string())?;
+
+    // Read encrypted DEK
+    let encrypted_dek =
+        std::fs::read(knot_dir.join("dek.enc")).map_err(|_| "Failed to read encrypted DEK")?;
+
+    if encrypted_dek.len() > 256 {
+        return Ok(AuthResult {
+            success: false,
+            error: Some("Invalid vault data".to_string()),
+            lockout_seconds: None,
+        });
+    }
+
+    // Decrypt DEK with current password to verify it's correct
+    let dek_bytes: Zeroizing<Vec<u8>> = match decrypt(&encrypted_dek, &*master_key) {
+        Ok(bytes) => Zeroizing::new(bytes),
+        Err(_) => {
+            return Ok(AuthResult {
+                success: false,
+                error: Some("Invalid password".to_string()),
+                lockout_seconds: None,
+            });
+        }
+    };
+
+    if dek_bytes.len() != 32 {
+        return Ok(AuthResult {
+            success: false,
+            error: Some("Invalid DEK".to_string()),
+            lockout_seconds: None,
+        });
+    }
+
+    let mut dek = Zeroizing::new([0u8; 32]);
+    dek.copy_from_slice(&dek_bytes);
+
+    // Generate new salt and encrypt DEK with new password
+    let new_salt = generate_salt();
+    let new_master_key =
+        derive_key(new_password.as_bytes(), &new_salt).map_err(|e| e.to_string())?;
+    let new_encrypted_dek = encrypt(&*dek, &*new_master_key).map_err(|e| e.to_string())?;
+
+    // Save new salt and encrypted DEK (replaces old ones)
+    std::fs::write(knot_dir.join("salt.bin"), &new_salt).map_err(|e| e.to_string())?;
+    std::fs::write(knot_dir.join("dek.enc"), &new_encrypted_dek).map_err(|e| e.to_string())?;
+
+    Ok(AuthResult {
+        success: true,
+        error: None,
+        lockout_seconds: None,
+    })
+}
+
 /// Recover vault with recovery key
 #[tauri::command]
 pub fn recover_vault(
@@ -355,4 +458,80 @@ pub fn recover_vault(
         error: None,
         lockout_seconds: None,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::crypto::{decrypt, derive_key, encrypt, generate_dek, generate_salt};
+
+    /// Simulate the password change flow at the crypto level:
+    /// encrypt DEK with old password → re-encrypt with new password → verify
+    #[test]
+    fn test_change_password_flow() {
+        let old_password = b"old_password_123";
+        let new_password = b"new_password_456";
+
+        // Setup: generate DEK and encrypt with old password
+        let dek = generate_dek();
+        let old_salt = generate_salt();
+        let old_master_key = derive_key(old_password, &old_salt).unwrap();
+        let encrypted_dek = encrypt(&*dek, &*old_master_key).unwrap();
+
+        // Step 1: Verify old password by decrypting DEK
+        let decrypted_dek_bytes = decrypt(&encrypted_dek, &*old_master_key).unwrap();
+        assert_eq!(decrypted_dek_bytes.as_slice(), dek.as_ref());
+
+        // Step 2: Re-encrypt DEK with new password
+        let new_salt = generate_salt();
+        let new_master_key = derive_key(new_password, &new_salt).unwrap();
+        let new_encrypted_dek = encrypt(&*dek, &*new_master_key).unwrap();
+
+        // Verify: new password can decrypt
+        let recovered_dek = decrypt(&new_encrypted_dek, &*new_master_key).unwrap();
+        assert_eq!(recovered_dek.as_slice(), dek.as_ref());
+
+        // Verify: old password cannot decrypt new encrypted DEK
+        let old_key_with_new_salt = derive_key(old_password, &new_salt).unwrap();
+        assert!(decrypt(&new_encrypted_dek, &*old_key_with_new_salt).is_err());
+    }
+
+    #[test]
+    fn test_change_password_dek_unchanged() {
+        let password1 = b"password_one_123";
+        let password2 = b"password_two_456";
+
+        // The DEK should remain the same after password change
+        let dek = generate_dek();
+        let original_dek_copy: [u8; 32] = *dek;
+
+        // Encrypt with password1
+        let salt1 = generate_salt();
+        let key1 = derive_key(password1, &salt1).unwrap();
+        let enc1 = encrypt(&*dek, &*key1).unwrap();
+
+        // Decrypt and re-encrypt with password2
+        let dec = decrypt(&enc1, &*key1).unwrap();
+        let salt2 = generate_salt();
+        let key2 = derive_key(password2, &salt2).unwrap();
+        let enc2 = encrypt(&dec, &*key2).unwrap();
+
+        // Decrypt with password2 and verify DEK is unchanged
+        let final_dek = decrypt(&enc2, &*key2).unwrap();
+        assert_eq!(final_dek.as_slice(), &original_dek_copy);
+    }
+
+    #[test]
+    fn test_wrong_current_password_fails_decrypt() {
+        let correct_password = b"correct_pass_123";
+        let wrong_password = b"wrong_pass_12345";
+
+        let dek = generate_dek();
+        let salt = generate_salt();
+        let master_key = derive_key(correct_password, &salt).unwrap();
+        let encrypted_dek = encrypt(&*dek, &*master_key).unwrap();
+
+        // Wrong password should fail to decrypt
+        let wrong_key = derive_key(wrong_password, &salt).unwrap();
+        assert!(decrypt(&encrypted_dek, &*wrong_key).is_err());
+    }
 }

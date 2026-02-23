@@ -8,6 +8,7 @@ import { useTranslation } from "../../i18n";
 import * as api from "../../lib/api";
 import { NoteList } from "./NoteList";
 import { SearchBar } from "./SearchBar";
+import { ChangePasswordModal } from "./ChangePasswordModal";
 
 export function Sidebar() {
   const { loadNotes, createNote, notes, isLoading } = useNotesStore();
@@ -18,6 +19,7 @@ export function Sidebar() {
   const [isCreating, setIsCreating] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showActions, setShowActions] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
 
@@ -125,7 +127,7 @@ export function Sidebar() {
                       <option value={30}>{t("sidebar.autoLockMinutes", { n: 30 })}</option>
                     </select>
                   </div>
-                  <div className="px-3 py-2">
+                  <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-600">
                     <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("sidebar.language")}</label>
                     <select
                       value={language}
@@ -136,6 +138,14 @@ export function Sidebar() {
                       <option value="ja">日本語</option>
                       <option value="en">English</option>
                     </select>
+                  </div>
+                  <div className="px-3 py-2">
+                    <button
+                      onClick={() => { setShowChangePassword(true); setShowSettings(false); }}
+                      className="w-full text-left text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                    >
+                      {t("changePassword.title")}
+                    </button>
                   </div>
                 </div>
               )}
@@ -199,6 +209,10 @@ export function Sidebar() {
           <NoteList />
         )}
       </div>
+
+      {showChangePassword && (
+        <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
+      )}
     </div>
   );
 }

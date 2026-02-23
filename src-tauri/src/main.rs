@@ -17,6 +17,7 @@ fn main() {
             commands::auth::unlock_vault,
             commands::auth::lock_vault,
             commands::auth::recover_vault,
+            commands::auth::change_password,
             commands::notes::create_note,
             commands::notes::get_note,
             commands::notes::update_note,
