@@ -224,7 +224,12 @@ pub fn search_notes(
 
     let encrypted_notes = db.list_notes().map_err(|e| e.to_string())?;
     let all_tags = db.get_all_note_tags().map_err(|e| e.to_string())?;
-    let query_lower = query.to_lowercase();
+
+    // Split query into terms for AND search: "a b" matches notes containing both "a" and "b"
+    let terms: Vec<String> = query
+        .split_whitespace()
+        .map(|t| t.to_lowercase())
+        .collect();
 
     let mut items = Vec::new();
     for enc in encrypted_notes {
@@ -243,12 +248,15 @@ pub fn search_notes(
         let id_str = note.id.to_string();
         let tags = all_tags.get(&id_str).cloned().unwrap_or_default();
 
-        // Search in title, content, and tag names
-        let tag_match = tags.iter().any(|t| t.contains(&query_lower));
-        if note.title.to_lowercase().contains(&query_lower)
-            || note.content.to_lowercase().contains(&query_lower)
-            || tag_match
-        {
+        // All terms must match somewhere in title, content, or tags (AND logic)
+        let title_lower = note.title.to_lowercase();
+        let content_lower = note.content.to_lowercase();
+        let matches = terms.iter().all(|term| {
+            title_lower.contains(term)
+                || content_lower.contains(term)
+                || tags.iter().any(|t| t.contains(term))
+        });
+        if matches {
             items.push(NoteListItem {
                 id: id_str,
                 title: note.title,

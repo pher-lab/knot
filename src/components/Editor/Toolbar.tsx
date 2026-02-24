@@ -6,24 +6,65 @@ interface ToolbarProps {
   view: EditorView | null;
 }
 
-// Wrap selection with prefix/suffix, or insert at cursor
-function wrapSelection(view: EditorView, prefix: string, suffix: string) {
+// Toggle wrap: if cursor is inside prefix...suffix, remove them; otherwise wrap/insert
+function toggleWrap(view: EditorView, prefix: string, suffix: string) {
   const { state } = view;
   const { from, to } = state.selection.main;
 
-  if (from === to) {
-    // No selection - insert placeholder
-    const placeholder = prefix + suffix;
-    view.dispatch({
-      changes: { from, to, insert: placeholder },
-      selection: EditorSelection.cursor(from + prefix.length),
-    });
-  } else {
+  if (from !== to) {
+    // Has selection: check if markers are directly outside the selection
+    if (
+      from >= prefix.length &&
+      state.sliceDoc(from - prefix.length, from) === prefix &&
+      state.sliceDoc(to, to + suffix.length) === suffix
+    ) {
+      view.dispatch({
+        changes: [
+          { from: from - prefix.length, to: from, insert: "" },
+          { from: to, to: to + suffix.length, insert: "" },
+        ],
+        selection: EditorSelection.range(from - prefix.length, to - prefix.length),
+      });
+      view.focus();
+      return;
+    }
     // Wrap selection
     const selectedText = state.sliceDoc(from, to);
     view.dispatch({
       changes: { from, to, insert: prefix + selectedText + suffix },
       selection: EditorSelection.range(from + prefix.length, to + prefix.length),
+    });
+  } else {
+    // No selection: check if cursor is inside a wrapped region on the same line
+    const line = state.doc.lineAt(from);
+    const lineText = line.text;
+    const cursorCol = from - line.from;
+    const textBefore = lineText.slice(0, cursorCol);
+    const textAfter = lineText.slice(cursorCol);
+    const prefixIdx = textBefore.lastIndexOf(prefix);
+    const suffixIdx = textAfter.indexOf(suffix);
+
+    if (prefixIdx !== -1 && suffixIdx !== -1) {
+      // Make sure there's no closing suffix between the prefix and the cursor
+      const between = textBefore.slice(prefixIdx + prefix.length);
+      if (!between.includes(suffix)) {
+        const absPrefix = line.from + prefixIdx;
+        const absSuffix = line.from + cursorCol + suffixIdx;
+        view.dispatch({
+          changes: [
+            { from: absPrefix, to: absPrefix + prefix.length, insert: "" },
+            { from: absSuffix, to: absSuffix + suffix.length, insert: "" },
+          ],
+          selection: EditorSelection.cursor(from - prefix.length),
+        });
+        view.focus();
+        return;
+      }
+    }
+    // Not inside: insert placeholder
+    view.dispatch({
+      changes: { from, insert: prefix + suffix },
+      selection: EditorSelection.cursor(from + prefix.length),
     });
   }
   view.focus();
@@ -79,49 +120,99 @@ function toggleList(view: EditorView, marker: string) {
   view.focus();
 }
 
-// Insert external link [text](url)
-function insertLink(view: EditorView) {
+// Toggle external link: if cursor is inside [text](url), remove link syntax; otherwise insert
+function toggleLink(view: EditorView) {
   const { state } = view;
   const { from, to } = state.selection.main;
 
+  // Check if cursor is inside a [text](url) pattern on the current line
+  const line = state.doc.lineAt(from);
+  const lineText = line.text;
+  const linkRegex = /\[([^\]]*)\]\(([^)]*)\)/g;
+  let match;
+  while ((match = linkRegex.exec(lineText)) !== null) {
+    const matchStart = line.from + match.index;
+    const matchEnd = matchStart + match[0].length;
+    if (matchStart <= from && from <= matchEnd) {
+      // Cursor is inside this link - remove link syntax, keep text
+      const linkText = match[1];
+      view.dispatch({
+        changes: { from: matchStart, to: matchEnd, insert: linkText },
+        selection: EditorSelection.cursor(matchStart + linkText.length),
+      });
+      view.focus();
+      return;
+    }
+  }
+
   if (from === to) {
-    // No selection - insert template
     const template = "[](url)";
     view.dispatch({
       changes: { from, to, insert: template },
-      selection: EditorSelection.cursor(from + 1), // cursor inside []
+      selection: EditorSelection.cursor(from + 1),
     });
   } else {
-    // Use selection as link text
     const selectedText = state.sliceDoc(from, to);
     const link = `[${selectedText}](url)`;
     view.dispatch({
       changes: { from, to, insert: link },
-      selection: EditorSelection.range(from + selectedText.length + 3, from + selectedText.length + 6), // select "url"
+      selection: EditorSelection.range(from + selectedText.length + 3, from + selectedText.length + 6),
     });
   }
   view.focus();
 }
 
-// Insert wiki link [[note name]]
-function insertWikiLink(view: EditorView) {
+// Toggle wiki link: if cursor is inside [[...]], remove markers; otherwise insert
+function toggleWikiLink(view: EditorView) {
   const { state } = view;
   const { from, to } = state.selection.main;
 
-  if (from === to) {
-    // No selection - insert template
-    const template = "[[]]";
+  if (from !== to) {
+    // Has selection: check if markers are directly outside
+    if (
+      from >= 2 &&
+      state.sliceDoc(from - 2, from) === "[[" &&
+      state.sliceDoc(to, to + 2) === "]]"
+    ) {
+      const selectedText = state.sliceDoc(from, to);
+      view.dispatch({
+        changes: { from: from - 2, to: to + 2, insert: selectedText },
+        selection: EditorSelection.range(from - 2, from - 2 + selectedText.length),
+      });
+      view.focus();
+      return;
+    }
+    const selectedText = state.sliceDoc(from, to);
     view.dispatch({
-      changes: { from, to, insert: template },
-      selection: EditorSelection.cursor(from + 2), // cursor inside [[]]
+      changes: { from, to, insert: `[[${selectedText}]]` },
+      selection: EditorSelection.range(from + 2, from + 2 + selectedText.length),
     });
   } else {
-    // Wrap selection as wiki link
-    const selectedText = state.sliceDoc(from, to);
-    const link = `[[${selectedText}]]`;
+    // No selection: check if cursor is inside [[...]]
+    const line = state.doc.lineAt(from);
+    const lineText = line.text;
+    const cursorCol = from - line.from;
+    const textBefore = lineText.slice(0, cursorCol);
+    const textAfter = lineText.slice(cursorCol);
+    const prefixIdx = textBefore.lastIndexOf("[[");
+    const suffixIdx = textAfter.indexOf("]]");
+
+    if (prefixIdx !== -1 && suffixIdx !== -1 && !textBefore.slice(prefixIdx + 2).includes("]]")) {
+      const absPrefix = line.from + prefixIdx;
+      const absSuffix = line.from + cursorCol + suffixIdx;
+      view.dispatch({
+        changes: [
+          { from: absPrefix, to: absPrefix + 2, insert: "" },
+          { from: absSuffix, to: absSuffix + 2, insert: "" },
+        ],
+        selection: EditorSelection.cursor(from - 2),
+      });
+      view.focus();
+      return;
+    }
     view.dispatch({
-      changes: { from, to, insert: link },
-      selection: EditorSelection.range(from + 2, from + 2 + selectedText.length),
+      changes: { from, insert: "[[]]" },
+      selection: EditorSelection.cursor(from + 2),
     });
   }
   view.focus();
@@ -225,14 +316,14 @@ export function Toolbar({ view }: ToolbarProps) {
   return (
     <div className="flex items-center gap-1 px-6 py-2 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
       <button
-        onClick={() => wrapSelection(view, "**", "**")}
+        onClick={() => toggleWrap(view, "**", "**")}
         className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-800 rounded transition-colors"
         title={t("toolbar.bold")}
       >
         <BoldIcon />
       </button>
       <button
-        onClick={() => wrapSelection(view, "*", "*")}
+        onClick={() => toggleWrap(view, "*", "*")}
         className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-800 rounded transition-colors"
         title={t("toolbar.italic")}
       >
@@ -262,14 +353,14 @@ export function Toolbar({ view }: ToolbarProps) {
       </button>
       <div className="w-px h-5 bg-gray-300 dark:bg-gray-700 mx-1" />
       <button
-        onClick={() => insertWikiLink(view)}
+        onClick={() => toggleWikiLink(view)}
         className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-800 rounded transition-colors"
         title={t("toolbar.wikiLink")}
       >
         <WikiLinkIcon />
       </button>
       <button
-        onClick={() => insertLink(view)}
+        onClick={() => toggleLink(view)}
         className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-800 rounded transition-colors"
         title={t("toolbar.externalLink")}
       >

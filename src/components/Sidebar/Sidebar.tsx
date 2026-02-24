@@ -22,16 +22,13 @@ export function Sidebar() {
   const [showSettings, setShowSettings] = useState(false);
   const [showActions, setShowActions] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const settingsRef = useRef<HTMLDivElement>(null);
-  const actionsRef = useRef<HTMLDivElement>(null);
+  const buttonsRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdowns when clicking outside
+  // Close dropdowns when clicking outside the buttons group
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+      if (buttonsRef.current && !buttonsRef.current.contains(e.target as Node)) {
         setShowSettings(false);
-      }
-      if (actionsRef.current && !actionsRef.current.contains(e.target as Node)) {
         setShowActions(false);
       }
     };
@@ -91,105 +88,21 @@ export function Sidebar() {
       <div className="p-4 border-b border-gray-300 dark:border-gray-700">
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Knot</h1>
-          <div className="flex items-center gap-1">
-            <div className="relative" ref={settingsRef}>
-              <button
-                onClick={() => { setShowSettings(!showSettings); setShowActions(false); }}
-                className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-300 dark:hover:bg-gray-700 rounded transition-colors"
-                title={t("sidebar.settings")}
-              >
-                <SettingsIcon />
-              </button>
-              {showSettings && (
-                <div className="absolute left-0 mt-1 w-48 bg-white dark:bg-gray-700 rounded-lg shadow-lg py-2 z-10 border border-gray-200 dark:border-gray-600">
-                  <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-600">
-                    <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("sidebar.theme")}</label>
-                    <select
-                      value={theme}
-                      onChange={(e) => setTheme(e.target.value as Theme)}
-                      className="w-full bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white text-sm rounded px-2 py-1 border border-gray-300 dark:border-gray-500 focus:outline-none focus:border-blue-500"
-                    >
-                      <option value="system">{t("sidebar.themeSystem")}</option>
-                      <option value="light">{t("sidebar.themeLight")}</option>
-                      <option value="dark">{t("sidebar.themeDark")}</option>
-                    </select>
-                  </div>
-                  <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-600">
-                    <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("sidebar.autoLock")}</label>
-                    <select
-                      value={autoLockMinutes}
-                      onChange={(e) => setAutoLockMinutes(Number(e.target.value))}
-                      className="w-full bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white text-sm rounded px-2 py-1 border border-gray-300 dark:border-gray-500 focus:outline-none focus:border-blue-500"
-                    >
-                      <option value={0}>{t("sidebar.autoLockDisabled")}</option>
-                      <option value={1}>{t("sidebar.autoLockMinutes", { n: 1 })}</option>
-                      <option value={5}>{t("sidebar.autoLockMinutes", { n: 5 })}</option>
-                      <option value={10}>{t("sidebar.autoLockMinutes", { n: 10 })}</option>
-                      <option value={15}>{t("sidebar.autoLockMinutes", { n: 15 })}</option>
-                      <option value={30}>{t("sidebar.autoLockMinutes", { n: 30 })}</option>
-                    </select>
-                  </div>
-                  <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-600">
-                    <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("sidebar.language")}</label>
-                    <select
-                      value={language}
-                      onChange={(e) => setLanguage(e.target.value as Language)}
-                      className="w-full bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white text-sm rounded px-2 py-1 border border-gray-300 dark:border-gray-500 focus:outline-none focus:border-blue-500"
-                    >
-                      <option value="system">{t("sidebar.languageSystem")}</option>
-                      <option value="ja">日本語</option>
-                      <option value="en">English</option>
-                    </select>
-                  </div>
-                  <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-600">
-                    <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("sidebar.fontSize")}</label>
-                    <select
-                      value={fontSize}
-                      onChange={(e) => setFontSize(e.target.value as FontSize)}
-                      className="w-full bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white text-sm rounded px-2 py-1 border border-gray-300 dark:border-gray-500 focus:outline-none focus:border-blue-500"
-                    >
-                      <option value="small">{t("sidebar.fontSmall")}</option>
-                      <option value="medium">{t("sidebar.fontMedium")}</option>
-                      <option value="large">{t("sidebar.fontLarge")}</option>
-                    </select>
-                  </div>
-                  <div className="px-3 py-2">
-                    <button
-                      onClick={() => { setShowChangePassword(true); setShowSettings(false); }}
-                      className="w-full text-left text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                    >
-                      {t("changePassword.title")}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="relative" ref={actionsRef}>
-              <button
-                onClick={() => { setShowActions(!showActions); setShowSettings(false); }}
-                className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-300 dark:hover:bg-gray-700 rounded transition-colors"
-                title={t("sidebar.import")}
-              >
-                <MoreIcon />
-              </button>
-              {showActions && (
-                <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-700 rounded-lg shadow-lg py-1 z-10 border border-gray-200 dark:border-gray-600">
-                  <button
-                    onClick={handleImport}
-                    className="w-full text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 px-3 py-2 transition-colors"
-                  >
-                    {t("sidebar.import")}
-                  </button>
-                  <button
-                    onClick={handleExportAll}
-                    disabled={notes.length === 0}
-                    className="w-full text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 px-3 py-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {t("sidebar.exportAll")}
-                  </button>
-                </div>
-              )}
-            </div>
+          <div className="flex items-center gap-1 relative" ref={buttonsRef}>
+            <button
+              onClick={() => { setShowSettings(!showSettings); setShowActions(false); }}
+              className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-300 dark:hover:bg-gray-700 rounded transition-colors"
+              title={t("sidebar.settings")}
+            >
+              <SettingsIcon />
+            </button>
+            <button
+              onClick={() => { setShowActions(!showActions); setShowSettings(false); }}
+              className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-300 dark:hover:bg-gray-700 rounded transition-colors"
+              title={t("sidebar.import")}
+            >
+              <MoreIcon />
+            </button>
             <button
               onClick={lock}
               className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-300 dark:hover:bg-gray-700 rounded transition-colors"
@@ -197,6 +110,86 @@ export function Sidebar() {
             >
               <LockIcon />
             </button>
+            {showSettings && (
+              <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-700 rounded-lg shadow-lg py-2 z-10 border border-gray-200 dark:border-gray-600">
+                <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-600">
+                  <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("sidebar.theme")}</label>
+                  <select
+                    value={theme}
+                    onChange={(e) => setTheme(e.target.value as Theme)}
+                    className="w-full bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white text-sm rounded px-2 py-1 border border-gray-300 dark:border-gray-500 focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="system">{t("sidebar.themeSystem")}</option>
+                    <option value="light">{t("sidebar.themeLight")}</option>
+                    <option value="dark">{t("sidebar.themeDark")}</option>
+                  </select>
+                </div>
+                <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-600">
+                  <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("sidebar.autoLock")}</label>
+                  <select
+                    value={autoLockMinutes}
+                    onChange={(e) => setAutoLockMinutes(Number(e.target.value))}
+                    className="w-full bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white text-sm rounded px-2 py-1 border border-gray-300 dark:border-gray-500 focus:outline-none focus:border-blue-500"
+                  >
+                    <option value={0}>{t("sidebar.autoLockDisabled")}</option>
+                    <option value={1}>{t("sidebar.autoLockMinutes", { n: 1 })}</option>
+                    <option value={5}>{t("sidebar.autoLockMinutes", { n: 5 })}</option>
+                    <option value={10}>{t("sidebar.autoLockMinutes", { n: 10 })}</option>
+                    <option value={15}>{t("sidebar.autoLockMinutes", { n: 15 })}</option>
+                    <option value={30}>{t("sidebar.autoLockMinutes", { n: 30 })}</option>
+                  </select>
+                </div>
+                <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-600">
+                  <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("sidebar.language")}</label>
+                  <select
+                    value={language}
+                    onChange={(e) => setLanguage(e.target.value as Language)}
+                    className="w-full bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white text-sm rounded px-2 py-1 border border-gray-300 dark:border-gray-500 focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="system">{t("sidebar.languageSystem")}</option>
+                    <option value="ja">日本語</option>
+                    <option value="en">English</option>
+                  </select>
+                </div>
+                <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-600">
+                  <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("sidebar.fontSize")}</label>
+                  <select
+                    value={fontSize}
+                    onChange={(e) => setFontSize(e.target.value as FontSize)}
+                    className="w-full bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white text-sm rounded px-2 py-1 border border-gray-300 dark:border-gray-500 focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="small">{t("sidebar.fontSmall")}</option>
+                    <option value="medium">{t("sidebar.fontMedium")}</option>
+                    <option value="large">{t("sidebar.fontLarge")}</option>
+                  </select>
+                </div>
+                <div className="px-3 py-2">
+                  <button
+                    onClick={() => { setShowChangePassword(true); setShowSettings(false); }}
+                    className="w-full text-left text-sm text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  >
+                    {t("changePassword.title")}
+                  </button>
+                </div>
+              </div>
+            )}
+            {showActions && (
+              <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-700 rounded-lg shadow-lg py-1 z-10 border border-gray-200 dark:border-gray-600">
+                <button
+                  onClick={handleImport}
+                  className="w-full text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 px-3 py-2 transition-colors"
+                >
+                  {t("sidebar.import")}
+                </button>
+                <button
+                  onClick={handleExportAll}
+                  disabled={notes.length === 0}
+                  className="w-full text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 px-3 py-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {t("sidebar.exportAll")}
+                </button>
+              </div>
+            )}
           </div>
         </div>
         <button

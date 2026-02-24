@@ -22,13 +22,18 @@ function App() {
   const resetNotes = useNotesStore((s) => s.reset);
   const resolvedTheme = useThemeStore((s) => s.resolvedTheme);
 
-  // Apply theme class to document
+  // Apply theme class to document with smooth transition
   useEffect(() => {
+    const root = document.documentElement;
+    root.classList.add("theme-transitioning");
+    root.getBoundingClientRect(); // Force reflow so transition fires before dark class changes
     if (resolvedTheme === "dark") {
-      document.documentElement.classList.add("dark");
+      root.classList.add("dark");
     } else {
-      document.documentElement.classList.remove("dark");
+      root.classList.remove("dark");
     }
+    const timer = setTimeout(() => root.classList.remove("theme-transitioning"), 200);
+    return () => clearTimeout(timer);
   }, [resolvedTheme]);
 
   // Auto-lock on inactivity

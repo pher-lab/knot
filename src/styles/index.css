@@ -2,3 +2,8 @@
 
 /* Dark mode variant using class strategy */
 @custom-variant dark (&:where(.dark, .dark *));
+
+/* Smooth theme transitions - temporarily applied during theme changes */
+.theme-transitioning * {
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
+}
