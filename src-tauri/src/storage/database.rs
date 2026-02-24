@@ -72,6 +72,8 @@ impl Database {
     }
 
     fn init_schema(conn: &Connection) -> SqlResult<()> {
+        conn.execute_batch("PRAGMA foreign_keys = ON;")?;
+
         conn.execute_batch(
             r#"
             CREATE TABLE IF NOT EXISTS notes (
@@ -94,6 +96,18 @@ impl Database {
         if !has_pinned {
             conn.execute_batch("ALTER TABLE notes ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0")?;
         }
+
+        // Migration: create note_tags table
+        conn.execute_batch(
+            r#"
+            CREATE TABLE IF NOT EXISTS note_tags (
+                note_id TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+                tag_name TEXT NOT NULL,
+                PRIMARY KEY (note_id, tag_name)
+            );
+            CREATE INDEX IF NOT EXISTS idx_note_tags_tag_name ON note_tags(tag_name);
+            "#,
+        )?;
 
         Ok(())
     }

@@ -7,6 +7,7 @@ pub struct Settings {
     pub theme: Option<String>,
     pub language: Option<String>,
     pub auto_lock_minutes: Option<u32>,
+    pub font_size: Option<String>,
 }
 
 /// Load settings from settings.json. Returns default (all None) if file doesn't exist.
@@ -47,12 +48,14 @@ mod tests {
             theme: Some("dark".to_string()),
             language: Some("ja".to_string()),
             auto_lock_minutes: Some(5),
+            font_size: Some("large".to_string()),
         };
         let json = serde_json::to_string(&settings).unwrap();
         let deserialized: Settings = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.theme.as_deref(), Some("dark"));
         assert_eq!(deserialized.language.as_deref(), Some("ja"));
         assert_eq!(deserialized.auto_lock_minutes, Some(5));
+        assert_eq!(deserialized.font_size.as_deref(), Some("large"));
     }
 
     #[test]
@@ -61,6 +64,7 @@ mod tests {
         assert!(settings.theme.is_none());
         assert!(settings.language.is_none());
         assert!(settings.auto_lock_minutes.is_none());
+        assert!(settings.font_size.is_none());
     }
 
     #[test]
@@ -81,6 +85,7 @@ mod tests {
             theme: Some("dark".to_string()),
             language: Some("en".to_string()),
             auto_lock_minutes: Some(10),
+            font_size: Some("medium".to_string()),
         };
 
         let data = serde_json::to_string_pretty(&settings).unwrap();

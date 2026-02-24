@@ -101,7 +101,8 @@
 ├── dek.enc            # Master Keyで暗号化されたDEK
 ├── recovery_dek.enc   # Recovery KEKで暗号化されたDEK (オプション)
 ├── knot.db            # SQLiteデータベース
-└── settings.json      # アプリ設定（テーマ、言語、自動ロック）
+├── settings.json      # アプリ設定（テーマ、言語、自動ロック、フォントサイズ）
+└── lockout.json       # ロックアウト状態（失敗回数、最終失敗時刻）— 成功時に削除
 ```
 
 ## 暗号化フォーマット
@@ -250,6 +251,70 @@ Rustバックエンドのエラーメッセージは英語で統一し、フロ�
 - `src/lib/welcomeNote.ts` に日英のタイトル・Markdownコンテンツを定義
 - `authStore.setup()` 成功後、画面遷移前に `api.createNote()` で作成
 - 内容: 基本操作、Markdown記法、ノートリンク、設定、セキュリティの紹介
+
+## タグの暗号化レベル
+
+**判断**: タグはSQLCipher（DB暗号化）のみで保護。ノート本文のようなXChaCha20-Poly1305による二重暗号化は適用しない。
+
+**理由**:
+- タグは`note_tags`テーブルに平文で格納し、`SELECT DISTINCT`やJOINで効率的にクエリ可能にする
+- 二重暗号化すると全ノート復号なしにタグフィルタリングができなくなる（パフォーマンス問題）
+- SQLCipherによりDBファイル自体は暗号化されるため、ディスク上では保護されている
+- タグは`pinned`や`created_at`と同じメタデータ層の扱い
+
+**トレードオフ**:
+- SQLCipherキーが漏洩した場合、タグ名は露出するがノート本文は依然としてXChaCha20で保護される
+- 「どのノートにどのタグがついているか」はメタデータとして扱う設計判断
+
+**タグの正規化**:
+- 小文字化 + 前後空白トリム
+- 空文字は無視、重複は`INSERT OR IGNORE`で吸収
+- `set_note_tags`はトランザクションで原子的に全置換（DELETE→INSERT）
+
+## ロックアウト状態の永続化
+
+**変更**: インメモリのみ → `lockout.json`ファイルベース
+
+**理由**:
+- アプリ再起動でロックアウトがリセットされ、ブルートフォース攻撃者が5回試行→再起動→5回試行を繰り返せる問題
+- `Instant`はシリアライズ不可のため、ファイルには`SystemTime`のUNIXエポック秒を使用
+
+**実装**:
+- `record_failed_attempt()` で `%LOCALAPPDATA%/knot/lockout.json` に書き込み
+- `reset_failed_attempts()` でファイルを削除
+- `ensure_lockout_loaded()` で起動時にlazy読み込み（エポック差分から`Instant`を復元）
+- `check_lockout_status` Tauriコマンドで、`UnlockScreen`マウント時にロックアウト状態を即座に表示
+
+**ファイルフォーマット**:
+```json
+{ "failed_attempts": 5, "last_failed_at_epoch": 1740412800 }
+```
+
+## クリップボードクリアタイマー
+
+**設計**: コピー後30秒でクリップボードを自動クリア
+
+**理由**:
+- リカバリーキーは極めて機密性が高く、クリップボードに無期限で残るのはリスク
+- 30秒はKeePass等のパスワードマネージャーで一般的なタイムアウト値
+
+**実装**:
+- `navigator.clipboard.writeText("")` で空文字に上書き（ブラウザ互換性が高い）
+- カウントダウン表示でユーザーに残り時間を通知
+- コンポーネントunmount時にタイマーをクリーンアップ（メモリリーク防止）
+
+## エディタフォントサイズ設定
+
+**設計**: CodeMirror `Compartment` による動的切り替え
+
+**理由**:
+- エディタを再生成せずにフォントサイズを変更したい（入力中の状態を保持）
+- 既存の `themeCompartment` / `highlightCompartment` と同じパターンで統一的に管理
+
+**実装**:
+- `fontSizeCompartment.reconfigure()` でライブ切り替え
+- `fontSizeStore.ts`（Zustand）で状態管理、`settingsHelper.ts` 経由で `settings.json` に永続化
+- 他のストア（theme, language, autoLock）と同じ `setXxx()` / `applyXxx()` パターン
 
 ## 実装済み機能
 

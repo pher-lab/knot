@@ -2,14 +2,14 @@
 
 ## 現在の状態
 
-**現在バージョン**: v0.3.0-alpha 開発中（v0.2.0 ベース）
+**現在バージョン**: v0.3.0-alpha 実装完了（未リリース）
 **前回リリース**: v0.1.0-alpha（2026-02-10）
 
 **プロジェクト初期化**: 完了
 **Rustバックエンド**: 基本実装完了（コンパイル成功）
 **フロントエンド**: 基本UI完成
-**テスト**: 105テスト全てパス（Rust 74 + Frontend 31）
-**セキュリティレビュー対応**: 推奨10項目+付随修正 完了
+**テスト**: 125テスト全てパス（Rust 94 + Frontend 31）
+**セキュリティレビュー対応**: 推奨10項目+付随修正 完了 + v0.3.0で H-3/H-5/M-9/L-10 対応
 **インポート/エクスポート**: 実装完了（.mdファイル対応）
 **Welcomeノート**: 実装完了
 **公開準備**: 完了
@@ -18,6 +18,67 @@
 **Zenn記事**: 公開済み
 
 ## セッション履歴
+
+### 2026-02-24: セキュリティ&UXポリッシュ `v0.3.0`
+- [x] カスタム削除確認ダイアログ（L-10）
+  - `window.confirm()` → カスタムモーダル `ConfirmDialog.tsx` に置き換え
+  - `variant="danger"` で赤い確認ボタン、backdrop click-to-close
+  - `Editor.tsx`と`NoteList.tsx`（コンテキストメニュー）の両方で適用
+  - 翻訳キー: `confirm.cancel`/`confirm.deleteNote`/`confirm.deleteNoteTitle`/`confirm.deleteNoteMessage`
+- [x] ロックアウト状態の永続化（H-3）
+  - `%LOCALAPPDATA%/knot/lockout.json` に `{ failed_attempts, last_failed_at_epoch }` を保存
+  - `record_failed_attempt()` で書き込み、`reset_failed_attempts()` でファイル削除
+  - `ensure_lockout_loaded()` でlazy読み込み（`Instant`をエポック差分から復元）
+  - `check_lockout_status` Tauriコマンド新設 → `UnlockScreen`がマウント時にロックアウト状態を即座に表示
+  - テスト5件追加（`commands/mod.rs`）
+- [x] クリップボードクリアタイマー（H-5）
+  - リカバリーキーコピー後、30秒でクリップボード自動クリア
+  - コピーボタンにカウントダウン表示（「30秒後にクリア」→「29秒後にクリア」…）
+  - コンポーネントunmount時にタイマークリーンアップ
+- [x] リカバリーキーコピー後の視覚フィードバック（M-9）
+  - コピー成功 → 緑色チェックマーク + 「コピーしました」（2秒間）
+  - try-catchでクリップボードAPI失敗時のハンドリング
+- [x] エディタフォントサイズ設定
+  - 3択: 小(13px) / 中(15px, デフォルト) / 大(18px)
+  - Rust `Settings` に `font_size: Option<String>` 追加
+  - `fontSizeStore.ts` 新設（Zustand store）
+  - `settingsHelper.ts` に `font_size` 追加して永続化
+  - CodeMirror `Compartment` でライブ切り替え（エディタ再生成不要）
+  - サイドバー設定ドロップダウンにセレクト追加
+  - `App.tsx` で起動時ロード
+- [x] ウィキリンクのハイライト修正
+  - `.cm-wikilink span { color: inherit !important }` で`processingInstruction`の灰色インラインスタイルを上書き
+  - `[[リンク]]` が均一な青色で表示されるように
+
+### 2026-02-24: タグ機能 `v0.3.0`
+- [x] タグ機能（フラット多対多）
+  - **DBスキーマ**: `note_tags`テーブル追加（`note_id`, `tag_name`複合PK、`ON DELETE CASCADE`）
+    - `PRAGMA foreign_keys = ON`を`init_schema`に追加
+    - `idx_note_tags_tag_name`インデックス追加
+  - **ストレージ層**: `notes.rs`に4メソッド追加
+    - `set_note_tags`: トランザクションでDELETE→INSERT（小文字化・trim・空文字除去）
+    - `get_note_tags`: 単一ノートのタグ取得（アルファベット順）
+    - `get_all_note_tags`: 全ノートのタグをHashMapで一括取得
+    - `list_all_tags`: `SELECT DISTINCT`で全タグ一覧
+    - `delete_note`にフォールバックDELETE追加
+  - **コマンド層**: `commands/notes.rs`
+    - `NoteListItem`/`NoteResponse`に`tags: Vec<String>`追加
+    - `list_notes`/`search_notes`で一括タグ取得、`get_note`/`update_note`/`create_note`でタグ返却
+    - `search_notes`でタグ名もマッチ対象に追加
+    - 新コマンド: `set_note_tags`, `list_all_tags`
+  - **フロントエンドAPI**: `api.ts`に`setNoteTags`/`listAllTags`追加、型に`tags`フィールド追加
+  - **ストア**: `notesStore.ts`
+    - `allTags`/`selectedTag`ステート追加
+    - `setNoteTags`/`loadAllTags`/`filterByTag`アクション追加
+    - `deleteNote`後に`loadAllTags`呼び出し（staleタグ防止）
+    - `loadAllTags`でstaleな`selectedTag`を自動クリア
+  - **i18n**: `tags.addPlaceholder`/`tags.noTaggedNotes`翻訳キー追加（ja/en）
+  - **UI**:
+    - `Sidebar.tsx`: `TagFilter`コンポーネント（横スクロールpill、クリックでフィルタ切替）
+    - `NoteList.tsx`: ノートアイテムにタグpill表示、`selectedTag`によるフィルタ、空結果メッセージ
+    - `Editor.tsx`: `TagEditor`コンポーネント（pill表示・×削除・Enter/カンマ確定・Backspace削除・オートコンプリート・フォーカスアウト/Escでクリア）
+    - `key={currentNote.id}`でノート切り替え時にTagEditorリセット
+  - **テスト**: Rust 7件追加（set/get/replace/clear/normalize/list_all/delete_cascade）、既存フロントテストのモック更新
 
 ### 2026-02-23: パスワード変更機能 `v0.3.0`
 - [x] パスワード変更機能
@@ -117,8 +178,8 @@
   - SQLCipher初期化
   - ノートCRUD操作
 - [x] Tauriコマンド実装
-  - 認証: check_vault_exists, setup_vault, unlock_vault, lock_vault, recover_vault
-  - ノート: create_note, get_note, update_note, delete_note, list_notes, search_notes, toggle_pin_note
+  - 認証: check_vault_exists, setup_vault, unlock_vault, lock_vault, recover_vault, change_password, check_lockout_status
+  - ノート: create_note, get_note, update_note, delete_note, list_notes, search_notes, toggle_pin_note, set_note_tags, list_all_tags
   - 設定: load_settings, save_settings
   - インポート/エクスポート: export_note, export_all_notes, import_notes
 - [x] フロントエンドUI実装
@@ -130,6 +191,7 @@
   - `src/stores/notesStore.ts` - ノート一覧・選択状態
   - `src/stores/themeStore.ts` - テーマ状態管理
   - `src/stores/languageStore.ts` - 言語状態管理
+  - `src/stores/fontSizeStore.ts` - フォントサイズ状態管理
   - `src/stores/settingsHelper.ts` - 設定永続化ヘルパー
 - [x] Tauri APIバインディング
   - `src/lib/api.ts` - Rustコマンドのラッパー
@@ -166,19 +228,19 @@
 | C-1 | パスワード・ニーモニック未ゼロ化 | **受容** — Tauri IPC制約・JSメモリモデルの限界。DESIGN_DECISIONSに記載 |
 | C-2 | リカバリーキーが平文Stringで返却 | **受容** — 同上 |
 
-### HIGH（高）— 7件 → 2件修正、5件受容/保留
+### HIGH（高）— 7件 → 4件修正、3件受容/保留
 
 | ID | 問題 | 対応 |
 |----|------|------|
 | H-1 | リカバリーフローにレート制限なし | **✅ 修正済み** — `recover_vault`にロックアウトチェック・失敗記録・成功時リセットを追加 |
 | H-2 | `setup_vault`が既存ボールト上書き防止なし | **✅ 修正済み** — `salt.bin`/`dek.enc`/`knot.db`の存在チェックをバックエンドに追加 |
-| H-3 | ロックアウト状態がインメモリのみ | **保留** — ファイルベース永続化は将来課題。攻撃には物理アクセス+再起動が必要 |
+| H-3 | ロックアウト状態がインメモリのみ | **✅ 修正済み (v0.3.0)** — `lockout.json`でファイルベース永続化。起動時にlazy読み込み、`check_lockout_status`コマンドで即時表示 |
 | H-4 | HKDFにソルトなし | **保留** — BIP39エントロピーは128bit、ソルト追加は互換性破壊を伴うため慎重に |
-| H-5 | クリップボードに無期限コピー | **保留** — クリアタイマー追加は将来課題 |
+| H-5 | クリップボードに無期限コピー | **✅ 修正済み (v0.3.0)** — コピー後30秒で自動クリア + カウントダウン表示 |
 | H-6 | リカバリーキーPDFが暗号化なし | **受容** — ユーザー責任範囲。ファイル名変更等は将来検討 |
 | H-7 | パスワードがReact stateに残留 | **受容** — JSメモリモデルの限界。DESIGN_DECISIONSに記載 |
 
-### MEDIUM（中）— 15件 → 8件修正、7件保留
+### MEDIUM（中）— 15件 → 9件修正、6件保留
 
 | ID | 問題 | 対応 |
 |----|------|------|
@@ -190,7 +252,7 @@
 | M-6 | Mutex保持期間が長い | **保留** — 将来課題 |
 | M-7 | パスワード強度に辞書チェックなし | **保留** — 将来課題 |
 | M-8 | 未知エラーがそのまま表示 | **保留** — 低リスク |
-| M-9 | コピー後のフィードバックなし | **保留** — UX改善として将来対応 |
+| M-9 | コピー後のフィードバックなし | **✅ 修正済み (v0.3.0)** — 緑チェックマーク+「コピーしました」表示(2秒) |
 | M-10 | ノート操作エラーが未表示 | **✅ 修正済み** — MainScreenにエラーバナー追加（×ボタンで閉じる） |
 | M-11 | saveTimeoutRefがノート切替時未クリア | **✅ 修正済み** — エディタクリーンアップでclearTimeout追加 |
 | M-12 | Ctrl+N/Ctrl+Fがエディタ中に動作しない | **✅ 修正済み** — isContentEditableチェックを除外、INPUT/TEXTAREAのみブロック |
@@ -198,7 +260,7 @@
 | M-14 | リカバリーPDFのi18n未対応 | **✅ 修正済み** — タイトル・日付ラベル・警告文全てを翻訳キー化 |
 | M-15 | SetupScreenのエラー翻訳漏れ | **✅ 修正済み** — `translateBackendError()`を適用 |
 
-### LOW（低）— 11件 → 2件修正、9件保留
+### LOW（低）— 11件 → 3件修正、8件保留
 
 | ID | 問題 | 対応 |
 |----|------|------|
@@ -211,7 +273,7 @@
 | L-7 | CSPにbase-uri/form-action未指定 | **✅ 修正済み** — `base-uri 'self'; form-action 'none'`追加 |
 | L-8 | profile.release未設定 | **✅ 修正済み** — `overflow-checks = true`追加 |
 | L-9 | chronoのデフォルトフィーチャー | **保留** — 影響軽微 |
-| L-10 | window.confirm()でノート削除 | **保留** — カスタムダイアログは将来 |
+| L-10 | window.confirm()でノート削除 | **✅ 修正済み (v0.3.0)** — `ConfirmDialog`コンポーネントでカスタムモーダル化 |
 | L-11 | エラー翻訳が文字列完全一致依存 | **保留** — 現状で十分機能 |
 
 ### 良好な実装（ポジティブ所見）
@@ -242,26 +304,28 @@ GitHub public化・Zenn記事公開・SECURITY.md・Issue templates 完了。
 - ピン留め機能（DB・バックエンド・フロントエンド・エディタボタン）
 - ノートリスト右クリックコンテキストメニュー
 
-### v0.3.0 — パスワード変更・タグ・UXポリッシュ（開発中）
+### v0.3.0 — パスワード変更・タグ・セキュリティ&UXポリッシュ ✅
 
 **パスワード変更機能** ✅
 - 現パスワード確認 → 新パスワードでDEKを再暗号化
 - `change_password` Rustコマンド新設
 - 設定ドロップダウンからモーダルで変更
 
-**タグ機能（フラット多対多）**
-- DBスキーマ: `note_tags (note_id, tag)` 中間テーブル追加（マイグレーション対応）
-- Rustコマンド: タグのCRUD + タグ別ノート一覧
-- サイドバー: タグフィルターUI
-- エディタ: タグの追加/削除UI
+**タグ機能（フラット多対多）** ✅
+- DBスキーマ: `note_tags (note_id, tag_name)` テーブル追加（`ON DELETE CASCADE`、マイグレーション対応）
+- Rustコマンド: `set_note_tags`, `list_all_tags` + 既存コマンドにタグ付与
+- サイドバー: タグフィルターUI（横スクロールpill）
+- エディタ: タグの追加/削除UI（オートコンプリート付き）
+- 検索: タグ名でもヒット
+- テスト: Rust 7件追加
 
-**セキュリティ&UXポリッシュ（優先順）**
-- カスタム削除確認ダイアログ（L-10: `window.confirm()`置き換え）
-- ロックアウト状態の永続化（H-3: ファイルベース保存）
-- クリップボードクリアタイマー（H-5）
-- リカバリーキーコピー後の視覚フィードバック（M-9）
-- エディタフォントサイズ設定
-- Markdownリンク`[]()`のシンタックスハイライト調整（`[]`が灰色になる問題）
+**セキュリティ&UXポリッシュ** ✅
+- カスタム削除確認ダイアログ（L-10）: `ConfirmDialog.tsx`コンポーネント新設
+- ロックアウト状態の永続化（H-3）: `lockout.json`でファイルベース保存 + 起動時即時表示
+- クリップボードクリアタイマー（H-5）: 30秒自動クリア + カウントダウン表示
+- リカバリーキーコピーフィードバック（M-9）: 緑チェック+「コピーしました」
+- エディタフォントサイズ設定: 小/中/大の3択、Compartmentでライブ切り替え
+- ウィキリンクハイライト修正: `[[]]`内の灰色シマシマを解消
 
 ### v0.4.0 — Markdownプレビュー（計画中）
 
@@ -289,6 +353,8 @@ GitHub public化・Zenn記事公開・SECURITY.md・Issue templates 完了。
 | `src/stores/` | Zustand状態管理 |
 | `src/stores/settingsHelper.ts` | 設定永続化ヘルパー（全ストアからRustへ保存） |
 | `src/stores/languageStore.ts` | 言語状態管理（ja/en） |
+| `src/stores/fontSizeStore.ts` | フォントサイズ状態管理（small/medium/large） |
+| `src/components/ConfirmDialog.tsx` | 汎用確認ダイアログ（削除確認等） |
 | `src-tauri/src/commands/settings.rs` | 設定ファイル読み書きコマンド |
 | `src/i18n/` | 翻訳システム（translations, hook, backendErrors） |
 | `src/lib/welcomeNote.ts` | Welcomeノートコンテンツ（日英） |
@@ -313,7 +379,7 @@ npm run tauri:build
 # Rustのみチェック
 cargo check --manifest-path src-tauri/Cargo.toml
 
-# Rustテスト（71テスト）
+# Rustテスト（94テスト）
 cargo test --manifest-path src-tauri/Cargo.toml
 
 # フロントエンドテスト（31テスト）
@@ -345,8 +411,10 @@ npx tsc --noEmit
 | keys.rs | 7 | 鍵導出、パスワードバリエーション |
 | recovery.rs | 3 | リカバリーキー生成・復元 |
 | database.rs | 6 | SQLCipher暗号化、CRUD |
+| notes.rs | 7 | タグCRUD、正規化、カスケード削除 |
 | settings.rs | 4 | 設定のシリアライズ・保存・読み込み |
 | auth.rs | 3 | パスワード変更フロー、DEK不変性、現パスワード検証 |
+| mod.rs | 5 | ロックアウト永続化、シリアライズ、状態管理 |
 | export_import.rs | 8 | ファイル名サニタイズ、パス衝突処理 |
 | 統合テスト | 7 | フルフロー（パスワード→暗号化→復号）|
 | authStore | 18 | 認証フロー、画面遷移 |

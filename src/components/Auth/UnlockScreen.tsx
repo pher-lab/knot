@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuthStore } from "../../stores/authStore";
 import { useLanguageStore, Language } from "../../stores/languageStore";
 import { useTranslation, translateBackendError } from "../../i18n";
+import * as api from "../../lib/api";
 
 export function UnlockScreen() {
   const [password, setPassword] = useState("");
@@ -17,6 +18,17 @@ export function UnlockScreen() {
   } = useAuthStore();
   const { language, setLanguage } = useLanguageStore();
   const { t } = useTranslation();
+
+  // Check persisted lockout state on mount
+  useEffect(() => {
+    api.checkLockoutStatus().then((remaining) => {
+      if (remaining && remaining > 0) {
+        setLockoutSeconds(remaining);
+        // Show error so the lockout timer is visible
+        useAuthStore.setState({ error: "Too many failed attempts" });
+      }
+    }).catch(() => {});
+  }, []);
 
   // Countdown timer for lockout
   useEffect(() => {

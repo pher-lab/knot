@@ -4,6 +4,7 @@ import { useNotesStore } from "../../stores/notesStore";
 import { useAuthStore } from "../../stores/authStore";
 import { useThemeStore, Theme } from "../../stores/themeStore";
 import { useLanguageStore, Language } from "../../stores/languageStore";
+import { useFontSizeStore, FontSize } from "../../stores/fontSizeStore";
 import { useTranslation } from "../../i18n";
 import * as api from "../../lib/api";
 import { NoteList } from "./NoteList";
@@ -15,6 +16,7 @@ export function Sidebar() {
   const { lock, autoLockMinutes, setAutoLockMinutes } = useAuthStore();
   const { theme, setTheme } = useThemeStore();
   const { language, setLanguage } = useLanguageStore();
+  const { fontSize, setFontSize } = useFontSizeStore();
   const { t } = useTranslation();
   const [isCreating, setIsCreating] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -139,6 +141,18 @@ export function Sidebar() {
                       <option value="en">English</option>
                     </select>
                   </div>
+                  <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-600">
+                    <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("sidebar.fontSize")}</label>
+                    <select
+                      value={fontSize}
+                      onChange={(e) => setFontSize(e.target.value as FontSize)}
+                      className="w-full bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white text-sm rounded px-2 py-1 border border-gray-300 dark:border-gray-500 focus:outline-none focus:border-blue-500"
+                    >
+                      <option value="small">{t("sidebar.fontSmall")}</option>
+                      <option value="medium">{t("sidebar.fontMedium")}</option>
+                      <option value="large">{t("sidebar.fontLarge")}</option>
+                    </select>
+                  </div>
                   <div className="px-3 py-2">
                     <button
                       onClick={() => { setShowChangePassword(true); setShowSettings(false); }}
@@ -198,6 +212,9 @@ export function Sidebar() {
       <div className="p-3 border-b border-gray-300 dark:border-gray-700">
         <SearchBar />
       </div>
+
+      {/* Tag Filter */}
+      <TagFilter />
 
       {/* Note List */}
       <div className="flex-1 overflow-y-auto">
@@ -259,5 +276,31 @@ function LockIcon() {
         d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
       />
     </svg>
+  );
+}
+
+function TagFilter() {
+  const { allTags, selectedTag, filterByTag } = useNotesStore();
+
+  if (allTags.length === 0) return null;
+
+  return (
+    <div className="px-3 py-2 border-b border-gray-300 dark:border-gray-700">
+      <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+        {allTags.map((tag) => (
+          <button
+            key={tag}
+            onClick={() => filterByTag(selectedTag === tag ? null : tag)}
+            className={`shrink-0 px-2 py-0.5 text-xs rounded-full transition-colors ${
+              selectedTag === tag
+                ? "bg-blue-500 text-white"
+                : "bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-400 dark:hover:bg-gray-600"
+            }`}
+          >
+            {tag}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }

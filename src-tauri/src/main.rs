@@ -12,6 +12,7 @@ fn main() {
     tauri::Builder::default()
         .manage(Mutex::new(AppState::new()) as StateWrapper)
         .invoke_handler(tauri::generate_handler![
+            commands::auth::check_lockout_status,
             commands::auth::check_vault_exists,
             commands::auth::setup_vault,
             commands::auth::unlock_vault,
@@ -25,6 +26,8 @@ fn main() {
             commands::notes::list_notes,
             commands::notes::search_notes,
             commands::notes::toggle_pin_note,
+            commands::notes::set_note_tags,
+            commands::notes::list_all_tags,
             commands::settings::load_settings,
             commands::settings::save_settings,
             commands::export_import::export_note,

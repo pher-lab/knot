@@ -18,6 +18,8 @@ interface NotesState {
   isSaving: boolean;
   pendingSave: PendingSave | null;
   error: string | null;
+  allTags: string[];
+  selectedTag: string | null;
 
   // Actions
   loadNotes: () => Promise<void>;
@@ -38,6 +40,10 @@ interface NotesState {
   // Wiki link helpers
   findNoteByTitle: (title: string) => NoteListItem | undefined;
   navigateToNoteByTitle: (title: string) => Promise<void>;
+  // Tags
+  setNoteTags: (id: string, tags: string[]) => Promise<void>;
+  loadAllTags: () => Promise<void>;
+  filterByTag: (tag: string | null) => void;
 }
 
 function sortNotes(notes: NoteListItem[]) {
@@ -59,6 +65,8 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   isSaving: false,
   pendingSave: null,
   error: null,
+  allTags: [],
+  selectedTag: null,
 
   loadNotes: async () => {
     set({ isLoading: true, error: null });
@@ -66,6 +74,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       const notes = await api.listNotes();
       sortNotes(notes);
       set({ notes, isLoading: false });
+      get().loadAllTags();
     } catch (e) {
       set({ error: String(e), isLoading: false });
     }
@@ -97,6 +106,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
         created_at: note.created_at,
         updated_at: note.updated_at,
         pinned: false,
+        tags: [],
       };
       set({
         notes: [newItem, ...notes],
@@ -118,7 +128,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       const { notes, selectedNoteId } = get();
       const updatedNotes = notes.map((n) =>
         n.id === id
-          ? { ...n, title: note.title, updated_at: note.updated_at }
+          ? { ...n, title: note.title, updated_at: note.updated_at, tags: note.tags }
           : n
       );
       sortNotes(updatedNotes);
@@ -147,6 +157,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
         currentNote: selectedNoteId === id ? null : get().currentNote,
         isSaving: false,
       });
+      get().loadAllTags();
       return true;
     } catch (e) {
       set({ error: String(e), isSaving: false });
@@ -183,6 +194,8 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       isSaving: false,
       pendingSave: null,
       error: null,
+      allTags: [],
+      selectedTag: null,
     }),
 
   setPendingSave: (data) => set({ pendingSave: data }),
@@ -228,6 +241,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
         created_at: note.created_at,
         updated_at: note.updated_at,
         pinned: false,
+        tags: [],
       };
       set({
         notes: [newItem, ...notes],
@@ -252,5 +266,42 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       // Note doesn't exist - create it
       await createNoteWithTitle(title);
     }
+  },
+
+  setNoteTags: async (id: string, tags: string[]) => {
+    try {
+      const savedTags = await api.setNoteTags(id, tags);
+      const { notes, currentNote } = get();
+      const updatedNotes = notes.map((n) =>
+        n.id === id ? { ...n, tags: savedTags } : n
+      );
+      set({
+        notes: updatedNotes,
+        currentNote:
+          currentNote && currentNote.id === id
+            ? { ...currentNote, tags: savedTags }
+            : currentNote,
+      });
+      get().loadAllTags();
+    } catch (e) {
+      set({ error: String(e) });
+    }
+  },
+
+  loadAllTags: async () => {
+    try {
+      const allTags = await api.listAllTags();
+      const { selectedTag } = get();
+      set({
+        allTags,
+        selectedTag: selectedTag && !allTags.includes(selectedTag) ? null : selectedTag,
+      });
+    } catch {
+      // Non-critical, don't set error
+    }
+  },
+
+  filterByTag: (tag: string | null) => {
+    set({ selectedTag: tag });
   },
 }));

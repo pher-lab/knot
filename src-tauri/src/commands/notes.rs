@@ -15,16 +15,18 @@ pub struct NoteResponse {
     pub content: String,
     pub created_at: String,
     pub updated_at: String,
+    pub tags: Vec<String>,
 }
 
-impl From<Note> for NoteResponse {
-    fn from(note: Note) -> Self {
+impl NoteResponse {
+    pub fn from_note_with_tags(note: Note, tags: Vec<String>) -> Self {
         Self {
             id: note.id.to_string(),
             title: note.title,
             content: note.content,
             created_at: note.created_at.to_rfc3339(),
             updated_at: note.updated_at.to_rfc3339(),
+            tags,
         }
     }
 }
@@ -36,6 +38,7 @@ pub struct NoteListItem {
     pub created_at: String,
     pub updated_at: String,
     pub pinned: bool,
+    pub tags: Vec<String>,
 }
 
 /// Create a new note
@@ -68,7 +71,7 @@ pub fn create_note(
 
     db.save_note(&encrypted_note).map_err(|e| e.to_string())?;
 
-    Ok(NoteResponse::from(note))
+    Ok(NoteResponse::from_note_with_tags(note, vec![]))
 }
 
 /// Get a note by ID
@@ -90,7 +93,8 @@ pub fn get_note(
         Some(enc) => {
             let decrypted = decrypt(&enc.encrypted_data, &**dek).map_err(|e| e.to_string())?;
             let note: Note = serde_json::from_slice(&decrypted).map_err(|e| e.to_string())?;
-            Ok(Some(NoteResponse::from(note)))
+            let tags = db.get_note_tags(&uuid).map_err(|e| e.to_string())?;
+            Ok(Some(NoteResponse::from_note_with_tags(note, tags)))
         }
         None => Ok(None),
     }
@@ -140,7 +144,8 @@ pub fn update_note(
 
     db.save_note(&new_encrypted_note).map_err(|e| e.to_string())?;
 
-    Ok(NoteResponse::from(note))
+    let tags = db.get_note_tags(&uuid).map_err(|e| e.to_string())?;
+    Ok(NoteResponse::from_note_with_tags(note, tags))
 }
 
 /// Delete a note
@@ -172,6 +177,7 @@ pub fn list_notes(state: State<'_, StateWrapper>) -> Result<Vec<NoteListItem>, S
     let db = app_state.db.as_ref().ok_or("Vault is locked")?;
 
     let encrypted_notes = db.list_notes().map_err(|e| e.to_string())?;
+    let all_tags = db.get_all_note_tags().map_err(|e| e.to_string())?;
 
     let mut items = Vec::with_capacity(encrypted_notes.len());
     for enc in encrypted_notes {
@@ -187,12 +193,16 @@ pub fn list_notes(state: State<'_, StateWrapper>) -> Result<Vec<NoteListItem>, S
             Err(_) => continue,
         };
 
+        let id_str = note.id.to_string();
+        let tags = all_tags.get(&id_str).cloned().unwrap_or_default();
+
         items.push(NoteListItem {
-            id: note.id.to_string(),
+            id: id_str,
             title: note.title,
             created_at: note.created_at.to_rfc3339(),
             updated_at: note.updated_at.to_rfc3339(),
             pinned: enc.pinned,
+            tags,
         });
     }
 
@@ -213,6 +223,7 @@ pub fn search_notes(
     let db = app_state.db.as_ref().ok_or("Vault is locked")?;
 
     let encrypted_notes = db.list_notes().map_err(|e| e.to_string())?;
+    let all_tags = db.get_all_note_tags().map_err(|e| e.to_string())?;
     let query_lower = query.to_lowercase();
 
     let mut items = Vec::new();
@@ -229,16 +240,22 @@ pub fn search_notes(
             Err(_) => continue,
         };
 
-        // Search in title and content
+        let id_str = note.id.to_string();
+        let tags = all_tags.get(&id_str).cloned().unwrap_or_default();
+
+        // Search in title, content, and tag names
+        let tag_match = tags.iter().any(|t| t.contains(&query_lower));
         if note.title.to_lowercase().contains(&query_lower)
             || note.content.to_lowercase().contains(&query_lower)
+            || tag_match
         {
             items.push(NoteListItem {
-                id: note.id.to_string(),
+                id: id_str,
                 title: note.title,
                 created_at: note.created_at.to_rfc3339(),
                 updated_at: note.updated_at.to_rfc3339(),
                 pinned: enc.pinned,
+                tags,
             });
         }
     }
@@ -270,4 +287,40 @@ pub fn toggle_pin_note(
         .map_err(|e| e.to_string())?;
 
     Ok(new_pinned)
+}
+
+/// Set tags for a note (full replacement)
+#[tauri::command]
+pub fn set_note_tags(
+    state: State<'_, StateWrapper>,
+    id: String,
+    tags: Vec<String>,
+) -> Result<Vec<String>, String> {
+    let app_state = state.lock().map_err(|_| "Failed to lock state")?;
+
+    let db = app_state.db.as_ref().ok_or("Vault is locked")?;
+
+    let uuid = Uuid::parse_str(&id).map_err(|_| "Invalid note ID")?;
+
+    // Verify note exists
+    db.get_note(&uuid)
+        .map_err(|e| e.to_string())?
+        .ok_or("Note not found")?;
+
+    db.set_note_tags(&uuid, &tags).map_err(|e| e.to_string())?;
+
+    // Return the normalized tags
+    let saved_tags = db.get_note_tags(&uuid).map_err(|e| e.to_string())?;
+    Ok(saved_tags)
+}
+
+/// List all distinct tags
+#[tauri::command]
+pub fn list_all_tags(state: State<'_, StateWrapper>) -> Result<Vec<String>, String> {
+    let app_state = state.lock().map_err(|_| "Failed to lock state")?;
+
+    let db = app_state.db.as_ref().ok_or("Vault is locked")?;
+
+    let tags = db.list_all_tags().map_err(|e| e.to_string())?;
+    Ok(tags)
 }

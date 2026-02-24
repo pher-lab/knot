@@ -3,6 +3,7 @@ import { save } from "@tauri-apps/api/dialog";
 import { useNotesStore } from "../../stores/notesStore";
 import { useTranslation } from "../../i18n";
 import { useLanguageStore } from "../../stores/languageStore";
+import { ConfirmDialog } from "../ConfirmDialog";
 import * as api from "../../lib/api";
 
 interface ContextMenuState {
@@ -13,18 +14,40 @@ interface ContextMenuState {
 }
 
 export function NoteList() {
-  const { notes, selectedNoteId, selectNote } = useNotesStore();
+  const { notes, selectedNoteId, selectNote, deleteNote, selectedTag } = useNotesStore();
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [deleteNoteId, setDeleteNoteId] = useState<string | null>(null);
+
+  const { t } = useTranslation();
+  const filteredNotes = selectedTag
+    ? notes.filter((n) => n.tags.includes(selectedTag))
+    : notes;
+
+  const handleConfirmDelete = async () => {
+    if (deleteNoteId) {
+      await deleteNote(deleteNoteId);
+      setDeleteNoteId(null);
+    }
+  };
+
+  if (filteredNotes.length === 0 && selectedTag) {
+    return (
+      <div className="p-4 text-center text-gray-500 text-sm">
+        {t("tags.noTaggedNotes")}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-1 p-2">
-      {notes.map((note) => (
+      {filteredNotes.map((note) => (
         <NoteItem
           key={note.id}
           id={note.id}
           title={note.title}
           updatedAt={note.updated_at}
           pinned={note.pinned}
+          tags={note.tags}
           isSelected={note.id === selectedNoteId}
           onSelect={() => selectNote(note.id)}
           onContextMenu={(e) => {
@@ -42,6 +65,18 @@ export function NoteList() {
         <NoteContextMenu
           {...contextMenu}
           onClose={() => setContextMenu(null)}
+          onRequestDelete={(id) => setDeleteNoteId(id)}
+        />
+      )}
+      {deleteNoteId && (
+        <ConfirmDialog
+          title={t("confirm.deleteNoteTitle")}
+          message={t("confirm.deleteNoteMessage")}
+          confirmLabel={t("confirm.deleteNote")}
+          cancelLabel={t("confirm.cancel")}
+          variant="danger"
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setDeleteNoteId(null)}
         />
       )}
     </div>
@@ -53,12 +88,13 @@ interface NoteItemProps {
   title: string;
   updatedAt: string;
   pinned: boolean;
+  tags: string[];
   isSelected: boolean;
   onSelect: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
 }
 
-function NoteItem({ title, updatedAt, pinned, isSelected, onSelect, onContextMenu }: NoteItemProps) {
+function NoteItem({ title, updatedAt, pinned, tags, isSelected, onSelect, onContextMenu }: NoteItemProps) {
   const { t } = useTranslation();
   const language = useLanguageStore((s) => s.resolvedLanguage);
   const formattedDate = formatDate(updatedAt, t, language);
@@ -84,6 +120,18 @@ function NoteItem({ title, updatedAt, pinned, isSelected, onSelect, onContextMen
         </div>
       </div>
       <div className="text-xs text-gray-500 mt-0.5">{formattedDate}</div>
+      {tags.length > 0 && (
+        <div className="flex gap-1 mt-1 flex-wrap">
+          {tags.map((tag) => (
+            <span
+              key={tag}
+              className="px-1.5 py-0 text-[10px] rounded-full bg-gray-300/70 dark:bg-gray-600/70 text-gray-600 dark:text-gray-400"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
     </button>
   );
 }
@@ -94,10 +142,11 @@ interface NoteContextMenuProps {
   x: number;
   y: number;
   onClose: () => void;
+  onRequestDelete: (id: string) => void;
 }
 
-function NoteContextMenu({ noteId, pinned, x, y, onClose }: NoteContextMenuProps) {
-  const { togglePin, deleteNote, selectNote } = useNotesStore();
+function NoteContextMenu({ noteId, pinned, x, y, onClose, onRequestDelete }: NoteContextMenuProps) {
+  const { togglePin, selectNote } = useNotesStore();
   const { t } = useTranslation();
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -143,11 +192,9 @@ function NoteContextMenu({ noteId, pinned, x, y, onClose }: NoteContextMenuProps
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     onClose();
-    if (window.confirm(t("editor.confirmDelete"))) {
-      await deleteNote(noteId);
-    }
+    onRequestDelete(noteId);
   };
 
   return (

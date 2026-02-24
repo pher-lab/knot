@@ -67,6 +67,9 @@ const wikilinkTheme = EditorView.baseTheme({
       textDecorationStyle: "solid",
     },
   },
+  ".cm-wikilink span": {
+    color: "inherit !important",
+  },
 });
 
 // Click handler for wiki links

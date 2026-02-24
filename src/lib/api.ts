@@ -18,6 +18,7 @@ export interface NoteResponse {
   content: string;
   created_at: string;
   updated_at: string;
+  tags: string[];
 }
 
 export interface NoteListItem {
@@ -26,9 +27,14 @@ export interface NoteListItem {
   created_at: string;
   updated_at: string;
   pinned: boolean;
+  tags: string[];
 }
 
 // Auth API
+export async function checkLockoutStatus(): Promise<number | null> {
+  return invoke<number | null>("check_lockout_status");
+}
+
 export async function checkVaultExists(): Promise<boolean> {
   return invoke<boolean>("check_vault_exists");
 }
@@ -105,6 +111,7 @@ export interface AppSettings {
   theme?: string;
   language?: string;
   auto_lock_minutes?: number;
+  font_size?: string;
 }
 
 export async function loadSettings(): Promise<AppSettings> {
@@ -131,4 +138,16 @@ export async function importNotes(filePaths: string[]): Promise<number> {
 // Pin API
 export async function togglePinNote(id: string): Promise<boolean> {
   return invoke<boolean>("toggle_pin_note", { id });
+}
+
+// Tags API
+export async function setNoteTags(
+  id: string,
+  tags: string[]
+): Promise<string[]> {
+  return invoke<string[]>("set_note_tags", { id, tags });
+}
+
+export async function listAllTags(): Promise<string[]> {
+  return invoke<string[]>("list_all_tags");
 }

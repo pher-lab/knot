@@ -108,6 +108,10 @@ const ja = {
   "contextMenu.delete": "削除",
   "contextMenu.export": "エクスポート",
 
+  // Tags
+  "tags.addPlaceholder": "タグを追加...",
+  "tags.noTaggedNotes": "このタグのノートはありません",
+
   // Search
   "search.placeholder": "検索...",
 
@@ -123,6 +127,22 @@ const ja = {
   "password.fair": "普通",
   "password.strong": "強い",
   "password.veryStrong": "とても強い",
+
+  // Confirm Dialog
+  "confirm.cancel": "キャンセル",
+  "confirm.deleteNote": "削除する",
+  "confirm.deleteNoteTitle": "ノートを削除",
+  "confirm.deleteNoteMessage": "このノートは完全に削除されます。この操作は取り消せません。",
+
+  // Recovery Modal (additional)
+  "recoveryModal.copied": "コピーしました",
+  "recoveryModal.clipboardClear": "{seconds}秒後にクリア",
+
+  // Font Size
+  "sidebar.fontSize": "フォントサイズ",
+  "sidebar.fontSmall": "小",
+  "sidebar.fontMedium": "中",
+  "sidebar.fontLarge": "大",
 
   // Backend Errors
   // Change Password
@@ -266,6 +286,10 @@ const en: Record<TranslationKey, string> = {
   "contextMenu.delete": "Delete",
   "contextMenu.export": "Export",
 
+  // Tags
+  "tags.addPlaceholder": "Add tag...",
+  "tags.noTaggedNotes": "No notes with this tag",
+
   // Search
   "search.placeholder": "Search...",
 
@@ -281,6 +305,22 @@ const en: Record<TranslationKey, string> = {
   "password.fair": "Fair",
   "password.strong": "Strong",
   "password.veryStrong": "Very strong",
+
+  // Confirm Dialog
+  "confirm.cancel": "Cancel",
+  "confirm.deleteNote": "Delete",
+  "confirm.deleteNoteTitle": "Delete Note",
+  "confirm.deleteNoteMessage": "This note will be permanently deleted. This action cannot be undone.",
+
+  // Recovery Modal (additional)
+  "recoveryModal.copied": "Copied!",
+  "recoveryModal.clipboardClear": "Clearing in {seconds}s",
+
+  // Font Size
+  "sidebar.fontSize": "Font size",
+  "sidebar.fontSmall": "Small",
+  "sidebar.fontMedium": "Medium",
+  "sidebar.fontLarge": "Large",
 
   // Backend Errors
   // Change Password

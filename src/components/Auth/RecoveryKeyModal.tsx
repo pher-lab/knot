@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef, useCallback } from "react";
 import { jsPDF } from "jspdf";
 import { useAuthStore } from "../../stores/authStore";
 import { useTranslation } from "../../i18n";
@@ -5,13 +6,63 @@ import { useTranslation } from "../../i18n";
 export function RecoveryKeyModal() {
   const { recoveryKey, clearRecoveryKey } = useAuthStore();
   const { t, language } = useTranslation();
+  const [copied, setCopied] = useState(false);
+  const [clipboardCountdown, setClipboardCountdown] = useState<number | null>(null);
+  const clipboardTimerRef = useRef<number | null>(null);
+  const copiedTimerRef = useRef<number | null>(null);
+  const countdownRef = useRef<number | null>(null);
+
+  // Cleanup all timers on unmount
+  useEffect(() => {
+    return () => {
+      if (clipboardTimerRef.current) clearTimeout(clipboardTimerRef.current);
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
+  }, []);
+
+  const startCountdown = useCallback(() => {
+    // Clear any existing countdown
+    if (countdownRef.current) clearInterval(countdownRef.current);
+
+    setClipboardCountdown(30);
+    countdownRef.current = window.setInterval(() => {
+      setClipboardCountdown((prev) => {
+        if (prev === null || prev <= 1) {
+          if (countdownRef.current) clearInterval(countdownRef.current);
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
 
   if (!recoveryKey) return null;
 
   const words = recoveryKey.split(" ");
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(recoveryKey);
+    try {
+      await navigator.clipboard.writeText(recoveryKey);
+      setCopied(true);
+
+      // Reset "Copied!" text after 2 seconds
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+      copiedTimerRef.current = window.setTimeout(() => {
+        setCopied(false);
+      }, 2000);
+
+      // Clear clipboard after 30 seconds
+      if (clipboardTimerRef.current) clearTimeout(clipboardTimerRef.current);
+      clipboardTimerRef.current = window.setTimeout(() => {
+        navigator.clipboard.writeText("").catch(() => {});
+      }, 30000);
+
+      // Start visible countdown
+      startCountdown();
+    } catch {
+      // Clipboard API not available
+    }
   };
 
   const handleSavePDF = () => {
@@ -115,9 +166,26 @@ export function RecoveryKeyModal() {
         <div className="flex gap-3">
           <button
             onClick={handleCopy}
-            className="flex-1 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg text-sm transition-colors"
+            className={`flex-1 py-2 rounded-lg text-sm transition-colors ${
+              copied
+                ? "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300"
+                : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white"
+            }`}
           >
-            {t("recoveryModal.copy")}
+            {copied ? (
+              <span className="inline-flex items-center justify-center gap-1">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                {t("recoveryModal.copied")}
+              </span>
+            ) : clipboardCountdown !== null ? (
+              <span className="text-gray-500 dark:text-gray-400">
+                {t("recoveryModal.clipboardClear", { seconds: clipboardCountdown })}
+              </span>
+            ) : (
+              t("recoveryModal.copy")
+            )}
           </button>
           <button
             onClick={handleSavePDF}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { EditorState, Compartment, EditorSelection } from "@codemirror/state";
 import { EditorView, keymap, placeholder } from "@codemirror/view";
 import { markdown, deleteMarkupBackward } from "@codemirror/lang-markdown";
@@ -8,15 +8,16 @@ import { tags } from "@lezer/highlight";
 import { save } from "@tauri-apps/api/dialog";
 import { useNotesStore } from "../../stores/notesStore";
 import { useThemeStore } from "../../stores/themeStore";
+import { useFontSizeStore, FontSize } from "../../stores/fontSizeStore";
 import { useTranslation } from "../../i18n";
 import * as api from "../../lib/api";
 import { wikilink } from "./wikilink";
 import { Toolbar } from "./Toolbar";
+import { ConfirmDialog } from "../ConfirmDialog";
 
 const baseTheme = EditorView.theme({
   "&": {
     height: "100%",
-    fontSize: "15px",
   },
   ".cm-content": {
     fontFamily: "'Noto Sans JP', sans-serif",
@@ -36,6 +37,16 @@ const baseTheme = EditorView.theme({
     color: "#6b7280",
   },
 });
+
+const fontSizeMap: Record<FontSize, string> = {
+  small: "13px",
+  medium: "15px",
+  large: "18px",
+};
+
+function fontSizeTheme(size: FontSize) {
+  return EditorView.theme({ "&": { fontSize: fontSizeMap[size] } });
+}
 
 const lightTheme = EditorView.theme(
   {
@@ -126,6 +137,7 @@ const darkHighlightStyle = HighlightStyle.define([
 const themeCompartment = new Compartment();
 const highlightCompartment = new Compartment();
 const placeholderCompartment = new Compartment();
+const fontSizeCompartment = new Compartment();
 
 // Custom Enter handler for Markdown lists that avoids library's renumbering bugs
 function customListEnter(view: EditorView): boolean {
@@ -305,9 +317,125 @@ function TrashIcon() {
   );
 }
 
+function TagEditor({ noteId, tags, allTags, onSetTags }: {
+  noteId: string;
+  tags: string[];
+  allTags: string[];
+  onSetTags: (id: string, tags: string[]) => Promise<void>;
+}) {
+  const { t } = useTranslation();
+  const [input, setInput] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const suggestions = useMemo(() => {
+    if (!input.trim()) return [];
+    const lower = input.trim().toLowerCase();
+    return allTags.filter(
+      (t) => t.includes(lower) && !tags.includes(t)
+    );
+  }, [input, allTags, tags]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const addTag = (tag: string) => {
+    const normalized = tag.trim().toLowerCase();
+    if (normalized && !tags.includes(normalized)) {
+      onSetTags(noteId, [...tags, normalized]);
+    }
+    setInput("");
+    setShowSuggestions(false);
+    inputRef.current?.focus();
+  };
+
+  const removeTag = (tag: string) => {
+    onSetTags(noteId, tags.filter((t) => t !== tag));
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      if (suggestions.length > 0 && input.trim()) {
+        addTag(suggestions[0]);
+      } else if (input.trim()) {
+        addTag(input);
+      }
+    } else if (e.key === "Backspace" && !input && tags.length > 0) {
+      removeTag(tags[tags.length - 1]);
+    } else if (e.key === "Escape") {
+      setInput("");
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleBlur = () => {
+    setInput("");
+    setShowSuggestions(false);
+  };
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {tags.map((tag) => (
+          <span
+            key={tag}
+            className="inline-flex items-center gap-0.5 px-2 py-0.5 text-xs rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
+          >
+            {tag}
+            <button
+              onClick={() => removeTag(tag)}
+              className="ml-0.5 hover:text-blue-900 dark:hover:text-blue-100"
+            >
+              &times;
+            </button>
+          </span>
+        ))}
+        <input
+          ref={inputRef}
+          type="text"
+          value={input}
+          onChange={(e) => {
+            setInput(e.target.value);
+            setShowSuggestions(true);
+          }}
+          onFocus={() => setShowSuggestions(true)}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+          placeholder={tags.length === 0 ? t("tags.addPlaceholder") : ""}
+          className="flex-1 min-w-[80px] text-xs bg-transparent border-none outline-none text-gray-700 dark:text-gray-300 placeholder-gray-400 dark:placeholder-gray-600"
+        />
+      </div>
+      {showSuggestions && suggestions.length > 0 && (
+        <div className="absolute left-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-10 max-h-32 overflow-y-auto">
+          {suggestions.map((s) => (
+            <button
+              key={s}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => addTag(s)}
+              className="w-full px-3 py-1 text-left text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Editor() {
-  const { currentNote, updateNote, deleteNote, togglePin, notes, isSaving, pendingSave, setPendingSave, navigateToNoteByTitle } = useNotesStore();
+  const { currentNote, updateNote, deleteNote, togglePin, notes, isSaving, pendingSave, setPendingSave, navigateToNoteByTitle, setNoteTags, allTags } = useNotesStore();
   const resolvedTheme = useThemeStore((s) => s.resolvedTheme);
+  const fontSize = useFontSizeStore((s) => s.fontSize);
   const { t } = useTranslation();
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -354,11 +482,17 @@ export function Editor() {
     }
   };
 
-  const handleDelete = async () => {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const handleDelete = () => {
     if (!currentNote) return;
-    if (window.confirm(t("editor.confirmDelete"))) {
-      await deleteNote(currentNote.id);
-    }
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!currentNote) return;
+    setShowDeleteConfirm(false);
+    await deleteNote(currentNote.id);
   };
 
   const handleExport = async () => {
@@ -391,6 +525,7 @@ export function Editor() {
         customMarkdownKeymap,
         keymap.of([...defaultKeymap, ...historyKeymap]),
         baseTheme,
+        fontSizeCompartment.of(fontSizeTheme(fontSize)),
         themeCompartment.of(resolvedTheme === "dark" ? darkTheme : lightTheme),
         highlightCompartment.of(
           syntaxHighlighting(resolvedTheme === "dark" ? darkHighlightStyle : lightHighlightStyle)
@@ -441,6 +576,15 @@ export function Editor() {
       });
     }
   }, [resolvedTheme]);
+
+  // Update CodeMirror font size when setting changes
+  useEffect(() => {
+    if (viewRef.current) {
+      viewRef.current.dispatch({
+        effects: fontSizeCompartment.reconfigure(fontSizeTheme(fontSize)),
+      });
+    }
+  }, [fontSize]);
 
   // Update CodeMirror placeholder when language changes
   useEffect(() => {
@@ -512,6 +656,15 @@ export function Editor() {
         <div className="text-xs text-gray-500 dark:text-gray-600 mt-2">
           {isSaving || pendingSave ? t("editor.saving") : t("editor.saved")}
         </div>
+        <div className="mt-2">
+          <TagEditor
+            key={currentNote.id}
+            noteId={currentNote.id}
+            tags={currentNote.tags}
+            allTags={allTags}
+            onSetTags={setNoteTags}
+          />
+        </div>
       </div>
 
       {/* Toolbar */}
@@ -519,6 +672,18 @@ export function Editor() {
 
       {/* Editor */}
       <div ref={editorRef} className="flex-1 overflow-auto" />
+
+      {showDeleteConfirm && (
+        <ConfirmDialog
+          title={t("confirm.deleteNoteTitle")}
+          message={t("confirm.deleteNoteMessage")}
+          confirmLabel={t("confirm.deleteNote")}
+          cancelLabel={t("confirm.cancel")}
+          variant="danger"
+          onConfirm={confirmDelete}
+          onCancel={() => setShowDeleteConfirm(false)}
+        />
+      )}
     </div>
   );
 }

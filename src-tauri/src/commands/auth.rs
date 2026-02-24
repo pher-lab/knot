@@ -28,6 +28,16 @@ pub struct AuthResult {
     pub lockout_seconds: Option<u64>,
 }
 
+/// Check current lockout status (called on app startup)
+/// Returns remaining lockout seconds, or null if not locked out
+#[tauri::command]
+pub fn check_lockout_status(
+    state: State<'_, StateWrapper>,
+) -> Result<Option<u64>, String> {
+    let mut app_state = state.lock().map_err(|_| "Failed to lock state")?;
+    Ok(app_state.check_lockout())
+}
+
 /// Check if a vault already exists
 #[tauri::command]
 pub fn check_vault_exists() -> Result<bool, String> {

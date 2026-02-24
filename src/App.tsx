@@ -3,6 +3,7 @@ import { useAuthStore } from "./stores/authStore";
 import { useNotesStore } from "./stores/notesStore";
 import { useThemeStore } from "./stores/themeStore";
 import { useLanguageStore } from "./stores/languageStore";
+import { useFontSizeStore, FontSize } from "./stores/fontSizeStore";
 import { useAutoLock } from "./hooks/useAutoLock";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useTranslation } from "./i18n";
@@ -54,6 +55,9 @@ function App() {
         }
         if (settings.auto_lock_minutes !== undefined && settings.auto_lock_minutes !== null) {
           useAuthStore.getState().applyAutoLockMinutes(settings.auto_lock_minutes);
+        }
+        if (settings.font_size) {
+          useFontSizeStore.getState().applyFontSize(settings.font_size as FontSize);
         }
       }
     };
