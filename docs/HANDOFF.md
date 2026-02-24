@@ -2,8 +2,8 @@
 
 ## 現在の状態
 
-**現在バージョン**: v0.3.0-alpha（2026-02-24リリース済み）
-**前回リリース**: v0.2.0-alpha（2026-02-16）
+**現在バージョン**: v0.3.1-alpha（2026-02-24リリース済み）
+**前回リリース**: v0.3.0-alpha（2026-02-24）
 
 **プロジェクト初期化**: 完了
 **Rustバックエンド**: 基本実装完了（コンパイル成功）
@@ -18,6 +18,17 @@
 **Zenn記事**: 公開済み
 
 ## セッション履歴
+
+### 2026-02-24: v0.3.1リリース
+- [x] AND検索: スペース区切りで全ワードをAND検索（`search_notes`のクエリ分割）
+- [x] ツールバートグル: 太字/斜体/wikiリンク/外部リンクのカーソル内検出→マーカー削除
+  - `wrapSelection` → `toggleWrap`（カーソル位置・選択範囲の両方でマーカー検出）
+  - `insertWikiLink` → `toggleWikiLink`（同様）
+  - `insertLink` → `toggleLink`（正規表現で`[text](url)`パターン検出）
+- [x] 設定メニュー位置修正: `settingsRef`/`actionsRef`を`buttonsRef`1つに統合、コンテナ全体を`relative`にして両ドロップダウンを`right-0 top-full`で右端揃え
+- [x] テーマトランジション: `index.css`に`.theme-transitioning *`追加、`App.tsx`で200msの間一時的にクラス付与→`getBoundingClientRect()`でリフロー強制
+- [x] バージョン更新: `0.3.0` → `0.3.1`（package.json, Cargo.toml, tauri.conf.json, Cargo.lock）
+- [x] GitHub Release `v0.3.1-alpha` 作成（Pre-release、インストーラー2種添付）
 
 ### 2026-02-24: v0.3.0リリース
 - [x] バージョン更新: `0.2.0` → `0.3.0`（package.json, Cargo.toml, tauri.conf.json, Cargo.lock）
@@ -335,6 +346,12 @@ GitHub public化・Zenn記事公開・SECURITY.md・Issue templates 完了。
 - リカバリーキーコピーフィードバック（M-9）: 緑チェック+「コピーしました」
 - エディタフォントサイズ設定: 小/中/大の3択、Compartmentでライブ切り替え
 - ウィキリンクハイライト修正: `[[]]`内の灰色シマシマを解消
+
+### v0.4.0 — Markdownプレビュー & パフォーマンス改善（計画中）
+
+> 戦略メモ（2026-02-24）: Zenn記事1本ではフィードバックが集まりにくい。
+> 目的は「プライバシーという概念を守る」こと。機能追加より認知拡大が優先かもしれない。
+> 自分自身がKnotを半共用PCで使っており、自分のペインポイントが最も正直なフィードバック。
 
 ### v0.4.0 — Markdownプレビュー & パフォーマンス改善（計画中）
 
