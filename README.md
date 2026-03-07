@@ -6,7 +6,7 @@
 
 Knot is a privacy-first encrypted note-taking app. All your data is encrypted locally — no server, no cloud, no plaintext ever touches disk. Built with a zero-knowledge architecture: only you can read your notes.
 
-> **Status**: Closed Alpha (v0.1.0) — Windows tested, macOS/Linux builds should work but are untested.
+> **Status**: Alpha (v0.4.0) — Windows tested, macOS/Linux builds should work but are untested.
 
 ![Main Editor](docs/screenshots/main_editor.png)
 
@@ -16,21 +16,30 @@ Knot is a privacy-first encrypted note-taking app. All your data is encrypted lo
 - **Strong key derivation** — Argon2id (64MB memory, 3 iterations, 4 parallel lanes)
 - **Recovery key** — BIP39 12-word mnemonic with PDF export, derived via HKDF-SHA256
 - **Markdown editor** — CodeMirror 6 with syntax highlighting, toolbar, and auto-save
+- **Markdown preview** — Toggle between edit and preview with GFM support (tables, task lists, strikethrough)
 - **Wiki links** — `[[note name]]` to link between notes; missing notes are auto-created on click
-- **Full-text search** — Encrypted search across all notes
+- **AND search** — Space-separated terms match across title, content, and tags
+- **Tags** — Organize notes with tags, filter by tag in the sidebar, autocomplete
+- **Pin notes** — Pin important notes to the top of the list
+- **Import/export** — Markdown file (.md) import and export (single or bulk)
+- **Password change** — Change your vault password without losing data
 - **Auto-lock** — Configurable idle timeout with immediate memory cleanup
-- **Brute-force protection** — 5 failed attempts triggers a 30-second lockout
-- **Theme** — Dark / Light / System
+- **Brute-force protection** — 5 failed attempts triggers a 30-second lockout (persists across restarts)
+- **Right-click context menu** — Pin, export, delete from the note list
+- **Theme** — Dark / Light / System with smooth transition
 - **Bilingual** — English and Japanese (日本語)
 - **Keyboard shortcuts** — `Ctrl+N` new note, `Ctrl+F` search, `Ctrl+L` lock
 
 <details>
 <summary>More screenshots</summary>
 
+### Markdown Preview
+![Markdown Preview](docs/screenshots/markdown_preview.png)
+
 ### Vault Setup
 ![Setup](docs/screenshots/setup.png)
 
-### Search
+### Search & Tags
 ![Search](docs/screenshots/sidebar_search.png)
 
 </details>
@@ -70,7 +79,6 @@ Knot is a privacy-first encrypted note-taking app. All your data is encrypted lo
 
 Known security trade-offs are documented in [`docs/DESIGN_DECISIONS.md`](docs/DESIGN_DECISIONS.md). In particular:
 - Passwords and decrypted content in the frontend are subject to JavaScript/WebView memory model limitations and cannot be reliably zeroed
-- Brute-force lockout state is in-memory only (resets on app restart)
 
 ### Security Review Welcome
 
@@ -84,7 +92,7 @@ We actively welcome security review from the community. If you find a vulnerabil
 
 ### From Pre-built Binary (Recommended)
 
-Download the latest `.msi` installer from the release and run it.
+Download the latest `.exe` or `.msi` installer from the [Releases](https://github.com/pher-lab/knot/releases) page and run it.
 
 ### Build from Source
 
@@ -111,29 +119,18 @@ The built installer will be in `src-tauri/target/release/bundle/`.
 
 1. **Create a vault** — Set a master password (8+ characters). Optionally generate a recovery key and save the PDF somewhere safe.
 2. **Write notes** — Use Markdown syntax. The toolbar provides quick formatting. Notes auto-save as you type.
-3. **Link notes** — Type `[[note name]]` to create links between notes.
-4. **Search** — Use the search bar in the sidebar or press `Ctrl+F`.
-5. **Lock** — Click the lock icon or press `Ctrl+L`. Your encryption keys are wiped from memory.
-6. **Recover** — If you forget your password, use your 12-word recovery phrase to set a new one.
+3. **Preview** — Click the eye icon in the toolbar to switch between edit and preview mode.
+4. **Link notes** — Type `[[note name]]` to create links between notes.
+5. **Organize** — Add tags to notes, pin important ones, filter by tag in the sidebar.
+6. **Search** — Use the search bar in the sidebar or press `Ctrl+F`. Space separates AND terms.
+7. **Lock** — Click the lock icon or press `Ctrl+L`. Your encryption keys are wiped from memory.
+8. **Recover** — If you forget your password, use your 12-word recovery phrase to set a new one.
 
 ## Known Limitations (Alpha)
 
 - **Windows only (tested)** — macOS and Linux builds are expected to work but haven't been tested yet
-- **Performance** — Note list decrypts all notes on load; may slow down with hundreds of notes
-- **No sync** — Fully local for now. Encrypted sync is planned for a future phase
-- **No import/export** — Coming in a future release
+- **No sync** — Fully local for now
 - **No auto-update** — Manual update required for new versions
-
-## Roadmap
-
-| Phase | Description | Status |
-|-------|-------------|--------|
-| **1. MVP** | Local encrypted notes, Markdown editor, recovery key, i18n | **Current** (Closed Alpha) |
-| **2. Sync** | E2E encrypted sync, P2P (libp2p), CRDT conflict resolution, import/export | Planned |
-| **3. Hardening** | Tor integration, metadata encryption, plausible deniability | Future |
-| **4. Expansion** | Mobile (Tauri 2.0), hardware key (YubiKey), post-quantum crypto | Future |
-
-See [`docs/SPECIFICATION.md`](docs/SPECIFICATION.md) for details.
 
 ## Tech Stack
 
@@ -141,7 +138,7 @@ See [`docs/SPECIFICATION.md`](docs/SPECIFICATION.md) for details.
 |-------|-----------|
 | Frontend | React 19, TypeScript, Vite 7, Tailwind CSS 4, Zustand, CodeMirror 6 |
 | Backend | Rust, Tauri 1.8, SQLCipher, RustCrypto (chacha20poly1305, argon2, hkdf, bip39) |
-| Tests | 94 tests (Rust 63 + Frontend 31) |
+| Tests | 131 tests (Rust 100 + Frontend 31) |
 
 ## Development
 
@@ -150,13 +147,13 @@ npm run tauri:dev      # Start dev server (frontend + backend)
 npm run tauri:build    # Production build
 
 # Run tests
-cd src-tauri && cargo test    # Rust tests (63)
+cd src-tauri && cargo test    # Rust tests (100)
 npm run test:run              # Frontend tests (31)
 ```
 
 ## Feedback & Contact
 
-This is a closed alpha — your feedback is invaluable.
+This is an alpha — your feedback is invaluable.
 
 - **Bug reports & feature requests**: [GitHub Issues](https://github.com/pher-lab/knot/issues)
 - **Security vulnerabilities**: [knot.wackiness531@passinbox.com](mailto:knot.wackiness531@passinbox.com) (please use responsible disclosure)

@@ -2,13 +2,13 @@
 
 ## 現在の状態
 
-**現在バージョン**: v0.3.1-alpha（2026-02-24リリース済み）
-**前回リリース**: v0.3.0-alpha（2026-02-24）
+**現在バージョン**: v0.4.0-alpha（開発中）
+**前回リリース**: v0.3.1-alpha（2026-02-24）
 
 **プロジェクト初期化**: 完了
 **Rustバックエンド**: 基本実装完了（コンパイル成功）
 **フロントエンド**: 基本UI完成
-**テスト**: 125テスト全てパス（Rust 94 + Frontend 31）
+**テスト**: 131テスト全てパス（Rust 100 + Frontend 31）
 **セキュリティレビュー対応**: 推奨10項目+付随修正 完了 + v0.3.0で H-3/H-5/M-9/L-10 対応
 **インポート/エクスポート**: 実装完了（.mdファイル対応）
 **Welcomeノート**: 実装完了
@@ -267,8 +267,8 @@
 | M-1 | 復号ノート内容が`Zeroizing`未使用 | **受容** — JSメモリモデルの限界。DESIGN_DECISIONSに記載 |
 | M-2 | `Note`構造体のZeroize未実装 | **受容** — 同上 |
 | M-3 | ロックアウト期限切れ後にfailed_attempts未リセット | **✅ 修正済み** — `check_lockout`を`&mut self`に変更、期限切れ時に自動リセット |
-| M-4 | `search_notes`が全ノートメモリ展開 | **保留** — パフォーマンス最適化は将来課題 |
-| M-5 | `list_notes`が全ノート復号 | **保留** — 同上 |
+| M-4 | `search_notes`が全ノートメモリ展開 | **受容** — E2E暗号化の性質上、全文検索には全復号が必須 |
+| M-5 | `list_notes`が全ノート復号 | **✅ 修正済み (v0.4.0)** — `encrypted_title`カラム追加、タイトルのみ復号する軽量パスに変更 |
 | M-6 | Mutex保持期間が長い | **保留** — 将来課題 |
 | M-7 | パスワード強度に辞書チェックなし | **保留** — 将来課題 |
 | M-8 | 未知エラーがそのまま表示 | **保留** — 低リスク |
@@ -289,7 +289,7 @@
 | L-3 | Settingsのバリデーションなし | **保留** |
 | L-4 | Settingsがロック中でも実行可能 | **仕様** — テーマ・言語はロック画面でも変更可能にする設計 |
 | L-5 | `Vault`モデルが未使用 | **保留** — 将来の同期機能で使用予定 |
-| L-6 | `NoteMetadata`が未使用 | **保留** — 同上 |
+| L-6 | `NoteMetadata`が未使用 | **✅ 修正済み (v0.4.0)** — `EncryptedNoteHeader`に置換、`list_notes_metadata()`で使用 |
 | L-7 | CSPにbase-uri/form-action未指定 | **✅ 修正済み** — `base-uri 'self'; form-action 'none'`追加 |
 | L-8 | profile.release未設定 | **✅ 修正済み** — `overflow-checks = true`追加 |
 | L-9 | chronoのデフォルトフィーチャー | **保留** — 影響軽微 |
@@ -347,21 +347,62 @@ GitHub public化・Zenn記事公開・SECURITY.md・Issue templates 完了。
 - エディタフォントサイズ設定: 小/中/大の3択、Compartmentでライブ切り替え
 - ウィキリンクハイライト修正: `[[]]`内の灰色シマシマを解消
 
-### v0.4.0 — Markdownプレビュー & パフォーマンス改善（計画中）
+### 2026-03-07: Markdownプレビュー `v0.4.0`
+- [x] Markdownプレビュー機能
+  - **ライブラリ**: `react-markdown` + `remark-gfm`（`dangerouslySetInnerHTML`不使用 → XSSポリシー準拠）
+  - **表示モード**: ツールバーのトグルボタンで編集↔プレビュー切り替え（目/ペンアイコン）
+  - **永続化なし**: 常に編集モードで起動、ノート切替時にリセット
+  - **ウィキリンク対応**: `[[Title]]` → `[Title](#wikilink:encodeURIComponent(title))`に前処理、カスタム`components.a`で`<span role="link">`としてレンダリング（Tauri/ブラウザのリンクハンドリング回避）
+  - **GFM対応**: テーブル、タスクリスト、打ち消し線
+  - **CodeMirror保持**: プレビュー中はエディタdivを`display:none`で隠す（unmountしない → undo履歴・エディタ状態保持）
+  - **save flush**: プレビュー切替時に`flushPendingSave()`で未保存内容を確実に反映
+  - **スタイリング**: `.prose-container`でエディタと統一（見出しサイズ・色をHighlightStyleに合わせる、ダークモード対応）
+  - **フォントサイズ**: エディタと同じsmall/medium/large連動
+  - **改行・空白保持**: `white-space: pre-wrap`で単一改行と連続スペースを保持（`remark-breaks`は二重改行問題で不採用）
+  - **長文折り返し**: `overflow-wrap: break-word`でスペースなし長文字列もコンテナ内で折り返し
+  - **レイアウト修正**: Editor+MainScreenに`min-w-0`追加（flexオーバーフローでサイドバーが縮む問題を修正）
+  - **先頭余白除去**: `.prose-container > :first-child { margin-top: 0 }`
+  - **ツールバー**: プレビュー中はフォーマットボタン非表示、トグルボタンのみ（アクティブ時は青背景）
+  - **i18n**: `toolbar.preview`/`toolbar.edit`キー追加（ja/en）
+- **新規ファイル**: `src/components/Editor/MarkdownPreview.tsx`
+- **変更ファイル**: `Editor.tsx`, `Toolbar.tsx`, `index.css`, `translations.ts`, `App.tsx`, `package.json`
 
 > 戦略メモ（2026-02-24）: Zenn記事1本ではフィードバックが集まりにくい。
 > 目的は「プライバシーという概念を守る」こと。機能追加より認知拡大が優先かもしれない。
 > 自分自身がKnotを半共用PCで使っており、自分のペインポイントが最も正直なフィードバック。
 
-### v0.4.0 — Markdownプレビュー & パフォーマンス改善（計画中）
+### 2026-03-07: バグ修正 & UX改善 `v0.4.0`
+- [x] ノート並び順バグ修正
+  - `createNote`/`createNoteWithTitle`で`sortNotes()`未呼出 → ピン留めノートより上に新規ノートが表示される問題を修正
+- [x] ConfirmDialogのキーボード操作対応
+  - 確認ボタンに自動フォーカス → Enterキーで確認、Escapeキーでキャンセル
+- [x] インポート後のノート自動選択
+  - `loadNotes()`後にリスト先頭のノートを`selectNote()`で選択
+  - タグフィルター中の場合はフィルターをクリアしてからノート選択
+- [x] Welcomeノート復元機能
+  - サイドバー「…」アクションメニューに「Welcomeノートを復元」ボタン追加
+  - ConfirmDialogで確認（上書き警告付き）→ 既存同名ノートがあれば削除してから再作成
+  - 復元後に自動選択
+  - `alert()`はTauri WebViewで表示されないためConfirmDialogに統一
+  - i18nキー追加: `sidebar.restoreWelcome`, `confirm.restoreWelcome*`
+- **変更ファイル**: `notesStore.ts`, `ConfirmDialog.tsx`, `Sidebar.tsx`, `translations.ts`
 
-**Markdownプレビュー**
-- トグル or サイドバイサイドでのHTML表示
-- XSS対策: DOMPurify等でのサニタイズが必要（`dangerouslySetInnerHTML`不使用の方針を踏まえて設計）
-
-**ノートリスト復号のパフォーマンス最適化（M-4/M-5）**
-- `list_notes`/`search_notes`が全ノート復号する現状を改善
-- タイトル別暗号化、またはメタデータキャッシュ等の手法を検討
+### 2026-03-07: list_notesパフォーマンス最適化 `v0.4.0`
+- [x] `encrypted_title`カラム追加によるlist_notes高速化（M-4/M-5対応）
+  - **問題**: `list_notes`が全ノートの`encrypted_data`（タイトル+本文のJSON全体）を復号してタイトルだけ取り出していた
+  - **解決**: `encrypted_title BLOB`カラムをnotesテーブルに追加、タイトルを別途XChaCha20-Poly1305で暗号化して保存
+  - **スキーママイグレーション**: `init_schema()`で`ALTER TABLE notes ADD COLUMN encrypted_title BLOB`（pinnedカラムと同パターン）
+  - **データマイグレーション**: `unlock_vault`/`recover_vault`で初回アンロック時に自動実行（冪等）
+    - `encrypted_title IS NULL`のノートを検出 → 全体復号 → タイトル抽出 → タイトル暗号化 → UPDATE
+    - トランザクション内で実行、破損ノートはスキップ
+  - **list_notes最適化**: `list_notes_metadata()`で`encrypted_data`をフェッチせず`encrypted_title`のみ取得・復号
+  - **フォールバック**: マイグレーション未実行のノートは従来通り全体復号にフォールバック
+  - **モデル変更**: `EncryptedNote`に`encrypted_title: Option<Vec<u8>>`追加、未使用`NoteMetadata`を`EncryptedNoteHeader`に置換
+  - **全書き込みパス対応**: `create_note`/`update_note`/`import_notes`でタイトル暗号化を追加
+  - **search_notes**: 変更なし（本文検索は全復号が必須 — E2E暗号化の性質上不可避）
+  - **テスト**: 新規3件追加（`test_list_notes_metadata`, `test_save_and_read_encrypted_title`, `test_migrate_encrypted_titles`）
+  - **セキュリティ**: 同じDEK・同じXChaCha20-Poly1305で暗号化、セキュリティレベル変更なし
+- **変更ファイル**: `models/note.rs`, `models/mod.rs`, `storage/database.rs`, `storage/notes.rs`, `commands/notes.rs`, `commands/auth.rs`, `commands/export_import.rs`
 
 ### 将来バージョン（未定）
 
@@ -385,6 +426,7 @@ GitHub public化・Zenn記事公開・SECURITY.md・Issue templates 完了。
 | `src/stores/settingsHelper.ts` | 設定永続化ヘルパー（全ストアからRustへ保存） |
 | `src/stores/languageStore.ts` | 言語状態管理（ja/en） |
 | `src/stores/fontSizeStore.ts` | フォントサイズ状態管理（small/medium/large） |
+| `src/components/Editor/MarkdownPreview.tsx` | Markdownプレビューコンポーネント |
 | `src/components/ConfirmDialog.tsx` | 汎用確認ダイアログ（削除確認等） |
 | `src-tauri/src/commands/settings.rs` | 設定ファイル読み書きコマンド |
 | `src/i18n/` | 翻訳システム（translations, hook, backendErrors） |
@@ -410,7 +452,7 @@ npm run tauri:build
 # Rustのみチェック
 cargo check --manifest-path src-tauri/Cargo.toml
 
-# Rustテスト（94テスト）
+# Rustテスト（100テスト）
 cargo test --manifest-path src-tauri/Cargo.toml
 
 # フロントエンドテスト（31テスト）
@@ -442,7 +484,7 @@ npx tsc --noEmit
 | keys.rs | 7 | 鍵導出、パスワードバリエーション |
 | recovery.rs | 3 | リカバリーキー生成・復元 |
 | database.rs | 6 | SQLCipher暗号化、CRUD |
-| notes.rs | 7 | タグCRUD、正規化、カスケード削除 |
+| notes.rs | 10 | タグCRUD、正規化、カスケード削除、encrypted_title |
 | settings.rs | 4 | 設定のシリアライズ・保存・読み込み |
 | auth.rs | 3 | パスワード変更フロー、DEK不変性、現パスワード検証 |
 | mod.rs | 5 | ロックアウト永続化、シリアライズ、状態管理 |
