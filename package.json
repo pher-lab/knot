@@ -1,6 +1,6 @@
 {
   "name": "knot",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Privacy-first encrypted note app",
   "type": "module",
   "scripts": {
@@ -33,6 +33,8 @@
     "jspdf": "^4.1.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "zustand": "^5.0.11"
   },
   "devDependencies": {

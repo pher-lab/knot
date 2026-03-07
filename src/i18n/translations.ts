@@ -76,6 +76,8 @@ const ja = {
   "toolbar.numberedList": "番号リスト",
   "toolbar.wikiLink": "ノートリンク [[ノート名]]",
   "toolbar.externalLink": "外部リンク [text](url)",
+  "toolbar.preview": "プレビュー",
+  "toolbar.edit": "編集に戻る",
 
   // Sidebar
   "sidebar.settings": "設定",
@@ -95,6 +97,10 @@ const ja = {
   "sidebar.languageSystem": "システム",
   "sidebar.import": "インポート",
   "sidebar.exportAll": "全ノートをエクスポート",
+  "sidebar.restoreWelcome": "Welcomeノートを復元",
+  "confirm.restoreWelcomeTitle": "Welcomeノートを復元",
+  "confirm.restoreWelcomeMessage": "初期状態のWelcomeノートを作成します。同名のノートが存在する場合は上書きされます。",
+  "confirm.restoreWelcome": "復元する",
   "import.success": "{n}件のノートをインポートしました",
   "import.error": "インポートに失敗しました",
   "export.success": "エクスポートが完了しました",
@@ -254,6 +260,8 @@ const en: Record<TranslationKey, string> = {
   "toolbar.numberedList": "Numbered list",
   "toolbar.wikiLink": "Note link [[note name]]",
   "toolbar.externalLink": "External link [text](url)",
+  "toolbar.preview": "Preview",
+  "toolbar.edit": "Back to edit",
 
   // Sidebar
   "sidebar.settings": "Settings",
@@ -273,6 +281,10 @@ const en: Record<TranslationKey, string> = {
   "sidebar.languageSystem": "System",
   "sidebar.import": "Import",
   "sidebar.exportAll": "Export all notes",
+  "sidebar.restoreWelcome": "Restore welcome note",
+  "confirm.restoreWelcomeTitle": "Restore Welcome Note",
+  "confirm.restoreWelcomeMessage": "This will create a fresh welcome note. If one already exists, it will be overwritten.",
+  "confirm.restoreWelcome": "Restore",
   "import.success": "Imported {n} notes",
   "import.error": "Import failed",
   "export.success": "Export completed",

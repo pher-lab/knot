@@ -108,7 +108,7 @@ function MainScreen() {
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       <Sidebar />
-      <div className="flex-1 flex flex-col relative">
+      <div className="flex-1 min-w-0 flex flex-col relative">
         {noteError && (
           <div className="absolute top-2 left-1/2 -translate-x-1/2 z-50 bg-red-100 dark:bg-red-900/80 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-200 text-sm px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
             <span>{noteError}</span>

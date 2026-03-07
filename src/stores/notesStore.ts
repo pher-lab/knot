@@ -108,8 +108,10 @@ export const useNotesStore = create<NotesState>((set, get) => ({
         pinned: false,
         tags: [],
       };
+      const sortedNotes = [newItem, ...notes];
+      sortNotes(sortedNotes);
       set({
-        notes: [newItem, ...notes],
+        notes: sortedNotes,
         selectedNoteId: note.id,
         currentNote: note,
         isSaving: false,
@@ -243,8 +245,10 @@ export const useNotesStore = create<NotesState>((set, get) => ({
         pinned: false,
         tags: [],
       };
+      const sortedNotes = [newItem, ...notes];
+      sortNotes(sortedNotes);
       set({
-        notes: [newItem, ...notes],
+        notes: sortedNotes,
         selectedNoteId: note.id,
         currentNote: note,
         isSaving: false,

@@ -13,6 +13,7 @@ import { useTranslation } from "../../i18n";
 import * as api from "../../lib/api";
 import { wikilink } from "./wikilink";
 import { Toolbar } from "./Toolbar";
+import { MarkdownPreview } from "./MarkdownPreview";
 import { ConfirmDialog } from "../ConfirmDialog";
 
 const baseTheme = EditorView.theme({
@@ -441,6 +442,7 @@ export function Editor() {
   const viewRef = useRef<EditorView | null>(null);
   const [editorView, setEditorView] = useState<EditorView | null>(null);
   const [title, setTitle] = useState("");
+  const [isPreview, setIsPreview] = useState(false);
   const titleRef = useRef(title);
   const saveTimeoutRef = useRef<number | null>(null);
   const noteIdRef = useRef<string | null>(null);
@@ -453,6 +455,23 @@ export function Editor() {
 
   const handleWikilinkClick = useCallback((linkTitle: string) => {
     navigateRef.current(linkTitle);
+  }, []);
+
+  const handleTogglePreview = useCallback(() => {
+    setIsPreview((prev) => {
+      if (!prev) {
+        // Switching TO preview: flush pending save
+        if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current);
+          saveTimeoutRef.current = null;
+        }
+        const { pendingSave, flushPendingSave } = useNotesStore.getState();
+        if (pendingSave) {
+          flushPendingSave();
+        }
+      }
+      return !prev;
+    });
   }, []);
 
   // Keep titleRef in sync
@@ -597,10 +616,11 @@ export function Editor() {
     }
   }, [t]);
 
-  // Sync title when note changes
+  // Sync title and reset preview when note changes
   useEffect(() => {
     if (currentNote) {
       setTitle(currentNote.title);
+      setIsPreview(false);
     }
   }, [currentNote?.id]);
 
@@ -615,7 +635,7 @@ export function Editor() {
   }
 
   return (
-    <div className="flex-1 bg-gray-50 dark:bg-gray-900 flex flex-col h-screen overflow-hidden">
+    <div className="flex-1 min-w-0 bg-gray-50 dark:bg-gray-900 flex flex-col h-screen overflow-hidden">
       {/* Title */}
       <div className="border-b border-gray-200 dark:border-gray-800 px-6 py-4">
         <div className="flex items-center gap-3">
@@ -668,10 +688,17 @@ export function Editor() {
       </div>
 
       {/* Toolbar */}
-      <Toolbar view={editorView} />
+      <Toolbar view={editorView} isPreview={isPreview} onTogglePreview={handleTogglePreview} />
 
-      {/* Editor */}
-      <div ref={editorRef} className="flex-1 overflow-auto" />
+      {/* Editor (hidden when preview is active, not unmounted to preserve CodeMirror state) */}
+      <div ref={editorRef} className="flex-1 overflow-auto" style={{ display: isPreview ? "none" : undefined }} />
+      {isPreview && (
+        <MarkdownPreview
+          content={viewRef.current?.state.doc.toString() ?? currentNote?.content ?? ""}
+          fontSize={fontSize}
+          onWikilinkClick={handleWikilinkClick}
+        />
+      )}
 
       {showDeleteConfirm && (
         <ConfirmDialog

@@ -6,13 +6,15 @@ import { useThemeStore, Theme } from "../../stores/themeStore";
 import { useLanguageStore, Language } from "../../stores/languageStore";
 import { useFontSizeStore, FontSize } from "../../stores/fontSizeStore";
 import { useTranslation } from "../../i18n";
+import { getWelcomeNote } from "../../lib/welcomeNote";
 import * as api from "../../lib/api";
 import { NoteList } from "./NoteList";
 import { SearchBar } from "./SearchBar";
 import { ChangePasswordModal } from "./ChangePasswordModal";
+import { ConfirmDialog } from "../ConfirmDialog";
 
 export function Sidebar() {
-  const { loadNotes, createNote, notes, isLoading } = useNotesStore();
+  const { loadNotes, createNote, selectNote, notes, isLoading } = useNotesStore();
   const { lock, autoLockMinutes, setAutoLockMinutes } = useAuthStore();
   const { theme, setTheme } = useThemeStore();
   const { language, setLanguage } = useLanguageStore();
@@ -22,6 +24,7 @@ export function Sidebar() {
   const [showSettings, setShowSettings] = useState(false);
   const [showActions, setShowActions] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showRestoreWelcome, setShowRestoreWelcome] = useState(false);
   const buttonsRef = useRef<HTMLDivElement>(null);
 
   // Close dropdowns when clicking outside the buttons group
@@ -58,11 +61,45 @@ export function Sidebar() {
       const filePaths = Array.isArray(files) ? files : [files];
       if (filePaths.length === 0) return;
       const count = await api.importNotes(filePaths);
+      // Clear tag filter so imported notes are visible
+      useNotesStore.getState().filterByTag(null);
       await loadNotes();
+      // Auto-select the most recently imported note (first in sorted list)
+      const { notes: updatedNotes } = useNotesStore.getState();
+      if (updatedNotes.length > 0) {
+        await selectNote(updatedNotes[0].id);
+      }
       setShowActions(false);
       alert(t("import.success", { n: count }));
     } catch {
       alert(t("import.error"));
+    }
+  };
+
+  const handleRestoreWelcome = () => {
+    setShowActions(false);
+    setShowRestoreWelcome(true);
+  };
+
+  const handleConfirmRestoreWelcome = async () => {
+    setShowRestoreWelcome(false);
+    try {
+      const lang = useLanguageStore.getState().resolvedLanguage;
+      const welcome = getWelcomeNote(lang);
+      // Delete existing welcome note if present
+      const existing = useNotesStore.getState().findNoteByTitle(welcome.title);
+      if (existing) {
+        await useNotesStore.getState().deleteNote(existing.id);
+      }
+      await api.createNote(welcome.title, welcome.content);
+      await loadNotes();
+      // Auto-select the restored welcome note
+      const restored = useNotesStore.getState().findNoteByTitle(welcome.title);
+      if (restored) {
+        await selectNote(restored.id);
+      }
+    } catch {
+      // Non-critical
     }
   };
 
@@ -188,6 +225,13 @@ export function Sidebar() {
                 >
                   {t("sidebar.exportAll")}
                 </button>
+                <div className="border-t border-gray-200 dark:border-gray-600" />
+                <button
+                  onClick={handleRestoreWelcome}
+                  className="w-full text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 px-3 py-2 transition-colors"
+                >
+                  {t("sidebar.restoreWelcome")}
+                </button>
               </div>
             )}
           </div>
@@ -222,6 +266,16 @@ export function Sidebar() {
 
       {showChangePassword && (
         <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
+      )}
+      {showRestoreWelcome && (
+        <ConfirmDialog
+          title={t("confirm.restoreWelcomeTitle")}
+          message={t("confirm.restoreWelcomeMessage")}
+          confirmLabel={t("confirm.restoreWelcome")}
+          cancelLabel={t("confirm.cancel")}
+          onConfirm={handleConfirmRestoreWelcome}
+          onCancel={() => setShowRestoreWelcome(false)}
+        />
       )}
     </div>
   );
