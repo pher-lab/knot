@@ -59,11 +59,13 @@ pub fn create_note(
     // Serialize and encrypt
     let note_json = serde_json::to_vec(&note).map_err(|e| e.to_string())?;
     let encrypted_data = encrypt(&note_json, &**dek).map_err(|e| e.to_string())?;
+    let encrypted_title = encrypt(note.title.as_bytes(), &**dek).map_err(|e| e.to_string())?;
 
     // Save to database
     let encrypted_note = EncryptedNote {
         id: note.id,
         encrypted_data,
+        encrypted_title: Some(encrypted_title),
         created_at: note.created_at,
         updated_at: note.updated_at,
         pinned: false,
@@ -132,11 +134,13 @@ pub fn update_note(
     // Serialize and encrypt
     let note_json = serde_json::to_vec(&note).map_err(|e| e.to_string())?;
     let new_encrypted_data = encrypt(&note_json, &**dek).map_err(|e| e.to_string())?;
+    let encrypted_title = encrypt(note.title.as_bytes(), &**dek).map_err(|e| e.to_string())?;
 
     // Save to database (preserve pinned state)
     let new_encrypted_note = EncryptedNote {
         id: note.id,
         encrypted_data: new_encrypted_data,
+        encrypted_title: Some(encrypted_title),
         created_at: note.created_at,
         updated_at: note.updated_at,
         pinned: encrypted_note.pinned,
@@ -166,9 +170,9 @@ pub fn delete_note(state: State<'_, StateWrapper>, id: String) -> Result<bool, S
     Ok(true)
 }
 
-/// List all notes (metadata only)
-/// Notes that fail to decrypt are skipped to ensure the list remains accessible
-/// even if some notes are corrupted.
+/// List all notes (metadata only, no content decryption)
+/// Uses encrypted_title for fast title decryption without loading full note blobs.
+/// Falls back to full decryption for pre-migration notes.
 #[tauri::command]
 pub fn list_notes(state: State<'_, StateWrapper>) -> Result<Vec<NoteListItem>, String> {
     let app_state = state.lock().map_err(|_| "Failed to lock state")?;
@@ -176,32 +180,44 @@ pub fn list_notes(state: State<'_, StateWrapper>) -> Result<Vec<NoteListItem>, S
     let dek = app_state.dek.as_ref().ok_or("Vault is locked")?;
     let db = app_state.db.as_ref().ok_or("Vault is locked")?;
 
-    let encrypted_notes = db.list_notes().map_err(|e| e.to_string())?;
+    let headers = db.list_notes_metadata().map_err(|e| e.to_string())?;
     let all_tags = db.get_all_note_tags().map_err(|e| e.to_string())?;
 
-    let mut items = Vec::with_capacity(encrypted_notes.len());
-    for enc in encrypted_notes {
-        // Skip notes that fail to decrypt (corrupted data)
-        let decrypted = match decrypt(&enc.encrypted_data, &**dek) {
-            Ok(data) => data,
-            Err(_) => continue,
+    let mut items = Vec::with_capacity(headers.len());
+    for hdr in headers {
+        let title = if let Some(ref enc_title) = hdr.encrypted_title {
+            // Fast path: decrypt only the title
+            match decrypt(enc_title, &**dek) {
+                Ok(bytes) => String::from_utf8(bytes).unwrap_or_default(),
+                Err(_) => continue,
+            }
+        } else {
+            // Fallback for pre-migration notes: load and decrypt full blob
+            match db.get_note(&hdr.id) {
+                Ok(Some(enc)) => {
+                    let decrypted = match decrypt(&enc.encrypted_data, &**dek) {
+                        Ok(data) => data,
+                        Err(_) => continue,
+                    };
+                    let note: Note = match serde_json::from_slice(&decrypted) {
+                        Ok(note) => note,
+                        Err(_) => continue,
+                    };
+                    note.title
+                }
+                _ => continue,
+            }
         };
 
-        // Skip notes that fail to deserialize (corrupted structure)
-        let note: Note = match serde_json::from_slice(&decrypted) {
-            Ok(note) => note,
-            Err(_) => continue,
-        };
-
-        let id_str = note.id.to_string();
+        let id_str = hdr.id.to_string();
         let tags = all_tags.get(&id_str).cloned().unwrap_or_default();
 
         items.push(NoteListItem {
             id: id_str,
-            title: note.title,
-            created_at: note.created_at.to_rfc3339(),
-            updated_at: note.updated_at.to_rfc3339(),
-            pinned: enc.pinned,
+            title,
+            created_at: hdr.created_at.to_rfc3339(),
+            updated_at: hdr.updated_at.to_rfc3339(),
+            pinned: hdr.pinned,
             tags,
         });
     }

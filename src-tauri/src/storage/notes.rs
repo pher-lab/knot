@@ -5,7 +5,7 @@ use rusqlite::{params, Row};
 use uuid::Uuid;
 
 use super::database::Database;
-use crate::models::EncryptedNote;
+use crate::models::{EncryptedNote, EncryptedNoteHeader};
 
 fn row_to_encrypted_note(row: &Row<'_>) -> Result<EncryptedNote, rusqlite::Error> {
     let id_str: String = row.get(0)?;
@@ -13,6 +13,7 @@ fn row_to_encrypted_note(row: &Row<'_>) -> Result<EncryptedNote, rusqlite::Error
     let created_at_str: String = row.get(2)?;
     let updated_at_str: String = row.get(3)?;
     let pinned: i64 = row.get(4)?;
+    let encrypted_title: Option<Vec<u8>> = row.get(5)?;
 
     let id = Uuid::parse_str(&id_str).map_err(|e| {
         rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
@@ -33,6 +34,39 @@ fn row_to_encrypted_note(row: &Row<'_>) -> Result<EncryptedNote, rusqlite::Error
     Ok(EncryptedNote {
         id,
         encrypted_data,
+        encrypted_title,
+        created_at,
+        updated_at,
+        pinned: pinned != 0,
+    })
+}
+
+fn row_to_encrypted_note_header(row: &Row<'_>) -> Result<EncryptedNoteHeader, rusqlite::Error> {
+    let id_str: String = row.get(0)?;
+    let encrypted_title: Option<Vec<u8>> = row.get(1)?;
+    let created_at_str: String = row.get(2)?;
+    let updated_at_str: String = row.get(3)?;
+    let pinned: i64 = row.get(4)?;
+
+    let id = Uuid::parse_str(&id_str).map_err(|e| {
+        rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
+    })?;
+
+    let created_at = DateTime::parse_from_rfc3339(&created_at_str)
+        .map_err(|e| {
+            rusqlite::Error::FromSqlConversionFailure(2, rusqlite::types::Type::Text, Box::new(e))
+        })?
+        .with_timezone(&Utc);
+
+    let updated_at = DateTime::parse_from_rfc3339(&updated_at_str)
+        .map_err(|e| {
+            rusqlite::Error::FromSqlConversionFailure(3, rusqlite::types::Type::Text, Box::new(e))
+        })?
+        .with_timezone(&Utc);
+
+    Ok(EncryptedNoteHeader {
+        id,
+        encrypted_title,
         created_at,
         updated_at,
         pinned: pinned != 0,
@@ -43,15 +77,17 @@ impl Database {
     pub fn save_note(&self, note: &EncryptedNote) -> Result<(), rusqlite::Error> {
         self.connection().execute(
             r#"
-            INSERT INTO notes (id, encrypted_data, created_at, updated_at, pinned)
-            VALUES (?1, ?2, ?3, ?4, ?5)
+            INSERT INTO notes (id, encrypted_data, encrypted_title, created_at, updated_at, pinned)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6)
             ON CONFLICT(id) DO UPDATE SET
                 encrypted_data = excluded.encrypted_data,
+                encrypted_title = excluded.encrypted_title,
                 updated_at = excluded.updated_at
             "#,
             params![
                 note.id.to_string(),
                 &note.encrypted_data,
+                &note.encrypted_title,
                 note.created_at.to_rfc3339(),
                 note.updated_at.to_rfc3339(),
                 note.pinned as i64,
@@ -62,7 +98,7 @@ impl Database {
 
     pub fn get_note(&self, id: &Uuid) -> Result<Option<EncryptedNote>, rusqlite::Error> {
         let mut stmt = self.connection().prepare(
-            "SELECT id, encrypted_data, created_at, updated_at, pinned FROM notes WHERE id = ?1",
+            "SELECT id, encrypted_data, created_at, updated_at, pinned, encrypted_title FROM notes WHERE id = ?1",
         )?;
 
         let note = stmt.query_row(params![id.to_string()], row_to_encrypted_note);
@@ -87,12 +123,74 @@ impl Database {
 
     pub fn list_notes(&self) -> Result<Vec<EncryptedNote>, rusqlite::Error> {
         let mut stmt = self.connection().prepare(
-            "SELECT id, encrypted_data, created_at, updated_at, pinned FROM notes ORDER BY pinned DESC, updated_at DESC",
+            "SELECT id, encrypted_data, created_at, updated_at, pinned, encrypted_title FROM notes ORDER BY pinned DESC, updated_at DESC",
         )?;
 
         let notes = stmt.query_map([], row_to_encrypted_note)?;
 
         notes.collect()
+    }
+
+    /// List note headers without encrypted_data (lightweight, for sidebar).
+    pub fn list_notes_metadata(&self) -> Result<Vec<EncryptedNoteHeader>, rusqlite::Error> {
+        let mut stmt = self.connection().prepare(
+            "SELECT id, encrypted_title, created_at, updated_at, pinned FROM notes ORDER BY pinned DESC, updated_at DESC",
+        )?;
+
+        let notes = stmt.query_map([], row_to_encrypted_note_header)?;
+
+        notes.collect()
+    }
+
+    /// Migrate existing notes to populate encrypted_title.
+    /// Decrypts each note's full blob, extracts title, encrypts it separately.
+    /// Idempotent: skips notes that already have encrypted_title.
+    pub fn migrate_encrypted_titles(&self, dek: &[u8; 32]) -> Result<(), rusqlite::Error> {
+        use crate::crypto::{decrypt, encrypt};
+        use crate::models::Note;
+
+        let count: i64 = self.connection().query_row(
+            "SELECT COUNT(*) FROM notes WHERE encrypted_title IS NULL",
+            [],
+            |row| row.get(0),
+        )?;
+
+        if count == 0 {
+            return Ok(());
+        }
+
+        let mut stmt = self.connection().prepare(
+            "SELECT id, encrypted_data FROM notes WHERE encrypted_title IS NULL",
+        )?;
+        let rows: Vec<(String, Vec<u8>)> = stmt
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, Vec<u8>>(1)?))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let tx = self.connection().unchecked_transaction()?;
+        {
+            let mut update_stmt =
+                tx.prepare("UPDATE notes SET encrypted_title = ?1 WHERE id = ?2")?;
+            for (id, encrypted_data) in &rows {
+                let decrypted = match decrypt(encrypted_data, dek) {
+                    Ok(data) => data,
+                    Err(_) => continue,
+                };
+                let note: Note = match serde_json::from_slice(&decrypted) {
+                    Ok(n) => n,
+                    Err(_) => continue,
+                };
+                let encrypted_title = match encrypt(note.title.as_bytes(), dek) {
+                    Ok(et) => et,
+                    Err(_) => continue,
+                };
+                update_stmt.execute(params![encrypted_title, id])?;
+            }
+        }
+        tx.commit()?;
+
+        Ok(())
     }
 
     pub fn set_note_pinned(&self, id: &Uuid, pinned: bool) -> Result<bool, rusqlite::Error> {
@@ -182,6 +280,7 @@ mod tests {
         let note = EncryptedNote {
             id: *id,
             encrypted_data: vec![0u8; 16],
+            encrypted_title: None,
             created_at: Utc::now(),
             updated_at: Utc::now(),
             pinned: false,
@@ -282,5 +381,91 @@ mod tests {
         assert!(tags.is_empty());
         let all_tags = db.list_all_tags().unwrap();
         assert!(all_tags.is_empty());
+    }
+
+    #[test]
+    fn test_list_notes_metadata() {
+        let db = setup_db();
+        let id = Uuid::new_v4();
+        let enc_title = Some(vec![1u8, 2, 3]);
+        let note = EncryptedNote {
+            id,
+            encrypted_data: vec![0u8; 16],
+            encrypted_title: enc_title.clone(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            pinned: false,
+        };
+        db.save_note(&note).unwrap();
+
+        let headers = db.list_notes_metadata().unwrap();
+        assert_eq!(headers.len(), 1);
+        assert_eq!(headers[0].id, id);
+        assert_eq!(headers[0].encrypted_title, enc_title);
+    }
+
+    #[test]
+    fn test_save_and_read_encrypted_title() {
+        let db = setup_db();
+        let id = Uuid::new_v4();
+        let title_data = vec![10u8, 20, 30, 40];
+        let note = EncryptedNote {
+            id,
+            encrypted_data: vec![0u8; 16],
+            encrypted_title: Some(title_data.clone()),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            pinned: false,
+        };
+        db.save_note(&note).unwrap();
+
+        let loaded = db.get_note(&id).unwrap().unwrap();
+        assert_eq!(loaded.encrypted_title, Some(title_data));
+    }
+
+    #[test]
+    fn test_migrate_encrypted_titles() {
+        use crate::crypto::{decrypt, encrypt};
+
+        let dir = tempdir().unwrap();
+        let db_path = dir.into_path().join("test.db");
+        let dek = generate_dek();
+        let db = Database::open_at_path(&db_path, &*dek).unwrap();
+
+        // Create a note without encrypted_title (simulating pre-migration)
+        let id = Uuid::new_v4();
+        let note = crate::models::Note::new("Test Title".into(), "Test Content".into());
+        let note_json = serde_json::to_vec(&crate::models::Note {
+            id,
+            title: "Test Title".into(),
+            content: "Test Content".into(),
+            created_at: note.created_at,
+            updated_at: note.updated_at,
+        })
+        .unwrap();
+        let encrypted_data = encrypt(&note_json, &*dek).unwrap();
+
+        let enc_note = EncryptedNote {
+            id,
+            encrypted_data,
+            encrypted_title: None,
+            created_at: note.created_at,
+            updated_at: note.updated_at,
+            pinned: false,
+        };
+        db.save_note(&enc_note).unwrap();
+
+        // Run migration
+        db.migrate_encrypted_titles(&*dek).unwrap();
+
+        // Verify encrypted_title is now populated
+        let loaded = db.get_note(&id).unwrap().unwrap();
+        assert!(loaded.encrypted_title.is_some());
+
+        let decrypted_title = decrypt(&loaded.encrypted_title.unwrap(), &*dek).unwrap();
+        assert_eq!(String::from_utf8(decrypted_title).unwrap(), "Test Title");
+
+        // Running migration again should be a no-op
+        db.migrate_encrypted_titles(&*dek).unwrap();
     }
 }

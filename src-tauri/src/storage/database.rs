@@ -97,6 +97,18 @@ impl Database {
             conn.execute_batch("ALTER TABLE notes ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0")?;
         }
 
+        // Migration: add encrypted_title column if not exists
+        let has_encrypted_title: bool = conn
+            .prepare(
+                "SELECT COUNT(*) FROM pragma_table_info('notes') WHERE name = 'encrypted_title'",
+            )?
+            .query_row([], |row| row.get::<_, i64>(0))
+            .map(|count| count > 0)?;
+
+        if !has_encrypted_title {
+            conn.execute_batch("ALTER TABLE notes ADD COLUMN encrypted_title BLOB")?;
+        }
+
         // Migration: create note_tags table
         conn.execute_batch(
             r#"

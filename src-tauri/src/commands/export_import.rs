@@ -156,10 +156,12 @@ pub fn import_notes(
 
         let note_json = serde_json::to_vec(&note).map_err(|e| e.to_string())?;
         let encrypted_data = encrypt(&note_json, &**dek).map_err(|e| e.to_string())?;
+        let encrypted_title = encrypt(note.title.as_bytes(), &**dek).map_err(|e| e.to_string())?;
 
         let encrypted_note = EncryptedNote {
             id: note.id,
             encrypted_data,
+            encrypted_title: Some(encrypted_title),
             created_at: note.created_at,
             updated_at: note.updated_at,
             pinned: false,

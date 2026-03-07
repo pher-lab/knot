@@ -30,16 +30,18 @@ impl Note {
 pub struct EncryptedNote {
     pub id: Uuid,
     pub encrypted_data: Vec<u8>,
+    pub encrypted_title: Option<Vec<u8>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub pinned: bool,
 }
 
-/// Note metadata for listing (no content)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NoteMetadata {
+/// Lightweight encrypted note header for listing (no encrypted_data blob).
+#[derive(Debug, Clone)]
+pub struct EncryptedNoteHeader {
     pub id: Uuid,
-    pub title: String,
+    pub encrypted_title: Option<Vec<u8>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub pinned: bool,
 }
