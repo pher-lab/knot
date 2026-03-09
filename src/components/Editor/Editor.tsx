@@ -3,6 +3,7 @@ import { EditorState, Compartment, EditorSelection } from "@codemirror/state";
 import { EditorView, keymap, placeholder } from "@codemirror/view";
 import { markdown, deleteMarkupBackward } from "@codemirror/lang-markdown";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
+import { search, searchKeymap } from "@codemirror/search";
 import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { tags } from "@lezer/highlight";
 import { save } from "@tauri-apps/api/dialog";
@@ -12,6 +13,8 @@ import { useFontSizeStore, FontSize } from "../../stores/fontSizeStore";
 import { useTranslation } from "../../i18n";
 import * as api from "../../lib/api";
 import { generateNotePdf } from "../../lib/exportPdf";
+import { insertImageFile } from "../../lib/insertImage";
+import { isAllowedImageType } from "../../lib/imageUtils";
 import { wikilink } from "./wikilink";
 import { Toolbar } from "./Toolbar";
 import { MarkdownPreview } from "./MarkdownPreview";
@@ -521,7 +524,7 @@ export function Editor() {
       if (!path) return;
       if (path.toLowerCase().endsWith(".pdf")) {
         const content = viewRef.current?.state.doc.toString() ?? currentNote.content;
-        const pdfData = generateNotePdf(noteTitle, content);
+        const pdfData = await generateNotePdf(noteTitle, content);
         await api.writeFile(path, Array.from(pdfData));
       } else {
         await api.exportNote(currentNote.id, path);
@@ -543,8 +546,9 @@ export function Editor() {
       extensions: [
         markdown({ addKeymap: false }),
         history(),
+        search(),
         customMarkdownKeymap,
-        keymap.of([...defaultKeymap, ...historyKeymap]),
+        keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
         baseTheme,
         fontSizeCompartment.of(fontSizeTheme(fontSize)),
         themeCompartment.of(resolvedTheme === "dark" ? darkTheme : lightTheme),
@@ -553,6 +557,47 @@ export function Editor() {
         ),
         placeholderCompartment.of(placeholder(t("editor.contentPlaceholder"))),
         wikilink(handleWikilinkClick),
+        EditorView.domEventHandlers({
+          paste(event, view) {
+            const items = event.clipboardData?.items;
+            if (!items || !noteIdRef.current) return false;
+            for (const item of items) {
+              if (item.kind === "file" && isAllowedImageType(item.type)) {
+                const file = item.getAsFile();
+                if (file) {
+                  event.preventDefault();
+                  insertImageFile(view, file, noteIdRef.current!).catch(
+                    () => {}
+                  );
+                  return true;
+                }
+              }
+            }
+            return false;
+          },
+          drop(event, view) {
+            const files = event.dataTransfer?.files;
+            if (!files || files.length === 0 || !noteIdRef.current) return false;
+            for (const file of files) {
+              if (isAllowedImageType(file.type)) {
+                event.preventDefault();
+                insertImageFile(view, file, noteIdRef.current!).catch(
+                  () => {}
+                );
+                return true;
+              }
+            }
+            return false;
+          },
+          dragover(event) {
+            const types = event.dataTransfer?.types;
+            if (types?.includes("Files")) {
+              event.preventDefault();
+              return true;
+            }
+            return false;
+          },
+        }),
         EditorView.updateListener.of((update) => {
           if (update.docChanged && noteIdRef.current) {
             saveNote(noteIdRef.current, titleRef.current, update.state.doc.toString());
@@ -695,7 +740,7 @@ export function Editor() {
       </div>
 
       {/* Toolbar */}
-      <Toolbar view={editorView} isPreview={isPreview} onTogglePreview={handleTogglePreview} />
+      <Toolbar view={editorView} isPreview={isPreview} onTogglePreview={handleTogglePreview} noteId={currentNote.id} />
 
       {/* Editor (hidden when preview is active, not unmounted to preserve CodeMirror state) */}
       <div ref={editorRef} className="flex-1 overflow-auto" style={{ display: isPreview ? "none" : undefined }} />

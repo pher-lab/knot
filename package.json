@@ -1,6 +1,6 @@
 {
   "name": "knot",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Privacy-first encrypted note app",
   "type": "module",
   "scripts": {
@@ -25,6 +25,7 @@
     "@codemirror/commands": "^6.10.1",
     "@codemirror/lang-markdown": "^6.5.0",
     "@codemirror/language": "^6.12.1",
+    "@codemirror/search": "^6.6.0",
     "@codemirror/state": "^6.5.4",
     "@codemirror/view": "^6.39.12",
     "@lezer/highlight": "^1.2.3",

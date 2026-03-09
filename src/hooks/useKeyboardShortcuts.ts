@@ -30,9 +30,11 @@ export function useKeyboardShortcuts() {
         return;
       }
 
-      // Ctrl+F: Focus search (works in editor, blocked only in input/textarea)
+      // Ctrl+F: Focus sidebar search (blocked in input/textarea and CodeMirror editor)
       if (e.ctrlKey && e.key === "f") {
         if (isTextInput) return;
+        // Let CodeMirror handle Ctrl+F for in-editor search
+        if ((target as HTMLElement).closest?.(".cm-editor")) return;
         e.preventDefault();
         const searchInput = document.getElementById("search-input");
         if (searchInput) {

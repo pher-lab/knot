@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod export_import;
+pub mod images;
 pub mod notes;
 pub mod settings;
 

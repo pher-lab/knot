@@ -130,6 +130,7 @@ export interface AppSettings {
   auto_lock_minutes?: number;
   font_size?: string;
   sort_mode?: string;
+  sort_direction?: string;
 }
 
 export async function loadSettings(): Promise<AppSettings> {
@@ -155,6 +156,37 @@ export async function importNotes(filePaths: string[]): Promise<number> {
 
 export async function writeFile(filePath: string, data: number[]): Promise<void> {
   return invoke<void>("write_file", { filePath, data });
+}
+
+// Image API
+export interface ImageInfo {
+  id: string;
+  note_id: string;
+  mime_type: string;
+  size_bytes: number;
+}
+
+export async function saveImage(
+  noteId: string,
+  data: number[],
+  mimeType: string
+): Promise<ImageInfo> {
+  return invoke<ImageInfo>("save_image", { noteId, data, mimeType });
+}
+
+export async function saveImageFromPath(
+  noteId: string,
+  filePath: string
+): Promise<ImageInfo> {
+  return invoke<ImageInfo>("save_image_from_path", { noteId, filePath });
+}
+
+export async function getImageData(imageId: string): Promise<number[]> {
+  return invoke<number[]>("get_image_data", { imageId });
+}
+
+export async function deleteImage(imageId: string): Promise<boolean> {
+  return invoke<boolean>("delete_image", { imageId });
 }
 
 // Pin API

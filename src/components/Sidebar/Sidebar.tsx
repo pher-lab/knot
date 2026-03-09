@@ -20,7 +20,7 @@ export function Sidebar() {
   const { theme, setTheme } = useThemeStore();
   const { language, setLanguage } = useLanguageStore();
   const { fontSize, setFontSize } = useFontSizeStore();
-  const { sortMode, setSortMode } = useSortModeStore();
+  const { sortMode, setSortMode, sortDirection, toggleSortDirection } = useSortModeStore();
   const { t } = useTranslation();
   const [isCreating, setIsCreating] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -221,15 +221,24 @@ export function Sidebar() {
                 </div>
                 <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-600">
                   <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("sidebar.sort")}</label>
-                  <select
-                    value={sortMode}
-                    onChange={(e) => { setSortMode(e.target.value as SortMode); loadNotes(); }}
-                    className="w-full bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white text-sm rounded px-2 py-1 border border-gray-300 dark:border-gray-500 focus:outline-none focus:border-blue-500"
-                  >
-                    <option value="updated">{t("sort.updated")}</option>
-                    <option value="created">{t("sort.created")}</option>
-                    <option value="title">{t("sort.title")}</option>
-                  </select>
+                  <div className="flex gap-1">
+                    <select
+                      value={sortMode}
+                      onChange={(e) => { setSortMode(e.target.value as SortMode); loadNotes(); }}
+                      className="flex-1 bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white text-sm rounded px-2 py-1 border border-gray-300 dark:border-gray-500 focus:outline-none focus:border-blue-500"
+                    >
+                      <option value="updated">{t("sort.updated")}</option>
+                      <option value="created">{t("sort.created")}</option>
+                      <option value="title">{t("sort.title")}</option>
+                    </select>
+                    <button
+                      onClick={() => { toggleSortDirection(); loadNotes(); }}
+                      className="px-1.5 bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded border border-gray-300 dark:border-gray-500 hover:bg-gray-200 dark:hover:bg-gray-500 transition-colors"
+                      title={sortDirection === "desc" ? t("sort.descending") : t("sort.ascending")}
+                    >
+                      {sortDirection === "desc" ? "↓" : "↑"}
+                    </button>
+                  </div>
                 </div>
                 <div className="px-3 py-2">
                   <button

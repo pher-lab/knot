@@ -1,8 +1,9 @@
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import { useMemo } from "react";
 import type { FontSize } from "../../stores/fontSizeStore";
+import { isKnotImageUrl } from "../../lib/imageUtils";
 
 interface MarkdownPreviewProps {
   content: string;
@@ -33,6 +34,13 @@ export function MarkdownPreview({ content, fontSize, onWikilinkClick }: Markdown
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight]}
+        urlTransform={(url) => {
+          // Allow knot-image URLs (default sanitizer strips custom protocols)
+          // Windows: https://knot-image.localhost/{uuid}
+          // macOS/Linux: knot-image://localhost/{uuid}
+          if (isKnotImageUrl(url)) return url;
+          return defaultUrlTransform(url);
+        }}
         components={{
           a({ href, children, node, ...props }) {
             if (href?.startsWith("#wikilink:")) {

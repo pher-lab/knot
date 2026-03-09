@@ -197,7 +197,7 @@ function NoteContextMenu({ noteId, pinned, x, y, onClose, onRequestDelete }: Not
       });
       if (!path) return;
       if (path.toLowerCase().endsWith(".pdf")) {
-        const pdfData = generateNotePdf(noteTitle, note.content);
+        const pdfData = await generateNotePdf(noteTitle, note.content);
         await api.writeFile(path, Array.from(pdfData));
       } else {
         await api.exportNote(noteId, path);

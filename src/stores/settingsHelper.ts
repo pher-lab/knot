@@ -11,6 +11,7 @@ export function saveAllSettings(): void {
   const autoLockMinutes = useAuthStore.getState().autoLockMinutes;
   const fontSize = useFontSizeStore.getState().fontSize;
   const sortMode = useSortModeStore.getState().sortMode;
+  const sortDirection = useSortModeStore.getState().sortDirection;
 
   api.saveSettings({
     theme,
@@ -18,6 +19,7 @@ export function saveAllSettings(): void {
     auto_lock_minutes: autoLockMinutes,
     font_size: fontSize,
     sort_mode: sortMode,
+    sort_direction: sortDirection,
   }).catch(() => {
     // Settings save is best-effort; don't disrupt the UI
   });

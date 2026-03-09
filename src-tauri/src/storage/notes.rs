@@ -155,6 +155,9 @@ impl Database {
         // Fallback: explicitly delete tags in case foreign_keys is not enabled
         self.connection()
             .execute("DELETE FROM note_tags WHERE note_id = ?1", params![id_str])?;
+        // Fallback: explicitly delete images for cascade
+        self.connection()
+            .execute("DELETE FROM images WHERE note_id = ?1", params![id_str])?;
         let rows = self
             .connection()
             .execute("DELETE FROM notes WHERE id = ?1", params![id_str])?;
@@ -260,6 +263,10 @@ impl Database {
             "DELETE FROM note_tags WHERE note_id IN (SELECT id FROM notes WHERE is_deleted = 1)",
             [],
         )?;
+        self.connection().execute(
+            "DELETE FROM images WHERE note_id IN (SELECT id FROM notes WHERE is_deleted = 1)",
+            [],
+        )?;
         let rows = self.connection().execute(
             "DELETE FROM notes WHERE is_deleted = 1",
             [],
@@ -271,6 +278,10 @@ impl Database {
         let cutoff = older_than.to_rfc3339();
         self.connection().execute(
             "DELETE FROM note_tags WHERE note_id IN (SELECT id FROM notes WHERE is_deleted = 1 AND deleted_at < ?1)",
+            params![cutoff],
+        )?;
+        self.connection().execute(
+            "DELETE FROM images WHERE note_id IN (SELECT id FROM notes WHERE is_deleted = 1 AND deleted_at < ?1)",
             params![cutoff],
         )?;
         let rows = self.connection().execute(

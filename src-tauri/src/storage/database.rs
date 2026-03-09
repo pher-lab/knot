@@ -151,6 +151,22 @@ impl Database {
             "#,
         )?;
 
+        // Images table for encrypted image storage
+        conn.execute_batch(
+            r#"
+            CREATE TABLE IF NOT EXISTS images (
+                id TEXT PRIMARY KEY,
+                note_id TEXT NOT NULL,
+                encrypted_data BLOB NOT NULL,
+                mime_type TEXT NOT NULL,
+                size_bytes INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_images_note_id ON images(note_id);
+            "#,
+        )?;
+
         Ok(())
     }
 

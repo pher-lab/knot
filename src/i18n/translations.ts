@@ -76,8 +76,14 @@ const ja = {
   "toolbar.numberedList": "番号リスト",
   "toolbar.wikiLink": "ノートリンク [[ノート名]]",
   "toolbar.externalLink": "外部リンク [text](url)",
+  "toolbar.insertImage": "画像を挿入",
   "toolbar.preview": "プレビュー",
   "toolbar.edit": "編集に戻る",
+
+  // Image
+  "image.tooLarge": "画像が大きすぎます（最大10MB）",
+  "image.unsupportedType": "サポートされていない画像形式です",
+  "image.uploadFailed": "画像のアップロードに失敗しました",
 
   // Sidebar
   "sidebar.settings": "設定",
@@ -126,6 +132,8 @@ const ja = {
   "sort.updated": "更新日",
   "sort.created": "作成日",
   "sort.title": "タイトル",
+  "sort.ascending": "昇順",
+  "sort.descending": "降順",
 
   // Note List
   "noteList.untitled": "Untitled",
@@ -282,8 +290,14 @@ const en: Record<TranslationKey, string> = {
   "toolbar.numberedList": "Numbered list",
   "toolbar.wikiLink": "Note link [[note name]]",
   "toolbar.externalLink": "External link [text](url)",
+  "toolbar.insertImage": "Insert image",
   "toolbar.preview": "Preview",
   "toolbar.edit": "Back to edit",
+
+  // Image
+  "image.tooLarge": "Image too large (max 10MB)",
+  "image.unsupportedType": "Unsupported image type",
+  "image.uploadFailed": "Failed to upload image",
 
   // Sidebar
   "sidebar.settings": "Settings",
@@ -332,6 +346,8 @@ const en: Record<TranslationKey, string> = {
   "sort.updated": "Updated",
   "sort.created": "Created",
   "sort.title": "Title",
+  "sort.ascending": "Ascending",
+  "sort.descending": "Descending",
 
   // Note List
   "noteList.untitled": "Untitled",

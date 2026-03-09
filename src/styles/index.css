@@ -119,6 +119,48 @@
 /* Images */
 .prose-container img { max-width: 100%; border-radius: 4px; margin: 0.75em 0; }
 
+/* CodeMirror search panel styling */
+.cm-search {
+  background-color: #f3f4f6 !important;
+  border-bottom: 1px solid #d1d5db !important;
+  padding: 4px 8px !important;
+}
+.dark .cm-search {
+  background-color: #1f2937 !important;
+  border-bottom-color: #374151 !important;
+  color: #e5e7eb !important;
+}
+.cm-search input,
+.cm-search button {
+  font-size: 13px !important;
+}
+.cm-search input {
+  border: 1px solid #d1d5db !important;
+  border-radius: 4px !important;
+  padding: 2px 6px !important;
+}
+.dark .cm-search input {
+  background-color: #374151 !important;
+  border-color: #4b5563 !important;
+  color: #e5e7eb !important;
+}
+.cm-search button {
+  background-color: #e5e7eb !important;
+  border-radius: 4px !important;
+  padding: 2px 8px !important;
+  cursor: pointer !important;
+}
+.dark .cm-search button {
+  background-color: #374151 !important;
+  color: #e5e7eb !important;
+}
+.cm-search label {
+  font-size: 13px !important;
+}
+.dark .cm-search label {
+  color: #9ca3af !important;
+}
+
 /* Code syntax highlighting — dark mode overrides (github-dark colors) */
 .dark .prose-container .hljs { color: #c9d1d9; background: transparent; }
 .dark .prose-container .hljs-comment,

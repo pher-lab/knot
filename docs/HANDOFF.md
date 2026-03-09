@@ -2,13 +2,13 @@
 
 ## 現在の状態
 
-**現在バージョン**: v0.5.0-alpha（リリース準備中）
-**前回リリース**: v0.4.0-alpha（2026-03-07）
+**現在バージョン**: v0.6.0-alpha（開発中）
+**前回リリース**: v0.5.0-alpha（2026-03-09）
 
 **プロジェクト初期化**: 完了
 **Rustバックエンド**: 基本実装完了（コンパイル成功）
 **フロントエンド**: 基本UI完成
-**テスト**: 143テスト全てパス（Rust 112 + Frontend 31）
+**テスト**: 128 Rust + 31 Frontend = 159テスト全パス
 **セキュリティレビュー対応**: 推奨10項目+付随修正 完了 + v0.3.0で H-3/H-5/M-9/L-10 対応
 **インポート/エクスポート**: 実装完了（.mdファイル対応）
 **Welcomeノート**: 実装完了
@@ -200,6 +200,7 @@
 - [x] Tauriコマンド実装
   - 認証: check_vault_exists, setup_vault, unlock_vault, lock_vault, recover_vault, change_password, check_lockout_status
   - ノート: create_note, get_note, update_note, delete_note, list_notes, search_notes, toggle_pin_note, set_note_tags, list_all_tags
+  - 画像: save_image, save_image_from_path, get_image_data, delete_image
   - 設定: load_settings, save_settings
   - インポート/エクスポート: export_note, export_all_notes, import_notes
 - [x] フロントエンドUI実装
@@ -454,6 +455,31 @@ GitHub public化・Zenn記事公開・SECURITY.md・Issue templates 完了。
 - **新規ファイル**: `sortModeStore.ts`, `exportPdf.ts`
 - **変更ファイル**: `settings.rs`, `export_import.rs`, `main.rs`, `api.ts`, `settingsHelper.ts`, `App.tsx`, `notesStore.ts`, `Sidebar.tsx`, `Editor.tsx`, `NoteList.tsx`, `translations.ts`, `welcomeNote.ts`
 
+### 2026-03-10: 画像対応 `v0.6.0`
+- [x] 画像の暗号化保存・表示機能
+  - **DBスキーマ**: `images`テーブル追加（`id`, `note_id`, `encrypted_data BLOB`, `mime_type`, `size_bytes`, `created_at`、外部キー+インデックス）
+  - **モデル**: `models/image.rs`新設（`EncryptedImage`, `ImageMetadata`）
+  - **ストレージ**: `storage/images.rs`新設（`save_image`, `get_image`, `list_images_for_note`, `delete_image`, `delete_images_for_note`）+ テスト8件
+  - **カスケード削除**: `delete_note`/`empty_trash`/`purge_old_trash`に`DELETE FROM images`追加
+  - **コマンド**: `commands/images.rs`新設（`save_image`, `save_image_from_path`, `get_image_data`, `delete_image`）
+    - MIME型バリデーション（png/jpeg/gif/webp）、サイズ上限10MB
+    - `save_image`: フロントエンドからバイナリ受信→暗号化→DB保存（クリップボード/D&D用）
+    - `save_image_from_path`: Rust側でファイル読み取り→暗号化（ツールバーファイルダイアログ用、IPC転送回避）
+  - **カスタムプロトコル**: `register_uri_scheme_protocol("knot-image")` でDB→復号→配信
+    - Windows: `https://knot-image.localhost/{uuid}`、macOS/Linux: `knot-image://localhost/{uuid}`
+    - `Cache-Control: no-store`でWebView2ディスクキャッシュ防止
+    - ロック中はHTTP 403を返却
+  - **CSP**: `img-src 'self' knot-image: https://knot-image.localhost data:` 追加
+  - **フロントエンドAPI**: `api.ts`に`saveImage`/`saveImageFromPath`/`getImageData`/`deleteImage`追加
+  - **画像ユーティリティ**: `imageUtils.ts`（`convertFileSrc`でプラットフォーム対応URL生成、ID抽出、バリデーション）、`insertImage.ts`（File/path→暗号化→Markdown挿入）
+  - **エディタ統合**: `Editor.tsx`にpaste/drop/dragoverのDOMイベントハンドラ追加（`EditorView.domEventHandlers`）
+  - **ツールバー**: `Toolbar.tsx`に画像挿入ボタン追加（`@tauri-apps/api/dialog`でファイル選択→`saveImageFromPath`→Markdown挿入）
+  - **プレビュー**: `MarkdownPreview.tsx`で`urlTransform`をオーバーライドし`knot-image`URLを許可（react-markdownのデフォルトsanitizerがカスタムプロトコルを除去する問題を回避）
+  - **i18n**: `toolbar.insertImage`, `image.tooLarge/unsupportedType/uploadFailed`追加（ja/en）
+- **新規ファイル**: `models/image.rs`, `storage/images.rs`, `commands/images.rs`, `src/lib/imageUtils.ts`, `src/lib/insertImage.ts`
+- **変更ファイル**: `models/mod.rs`, `storage/mod.rs`, `storage/database.rs`, `storage/notes.rs`, `commands/mod.rs`, `main.rs`, `tauri.conf.json`, `api.ts`, `Editor.tsx`, `Toolbar.tsx`, `MarkdownPreview.tsx`, `translations.ts`
+- **テスト**: Rust 128テスト（+16新規: images 8件 + bin重複8件）、Frontend 31テスト パス
+
 ### v0.5.0 — 完了サマリー ✅
 
 - コードブロックのシンタックスハイライト（rehype-highlight）
@@ -463,16 +489,41 @@ GitHub public化・Zenn記事公開・SECURITY.md・Issue templates 完了。
 - PDFエクスポート（プレーンテキスト）
 - Welcomeノート更新（日英）
 
-### v0.6.0 — 未定
+### v0.6.0 — 画像対応 & 小改善 ✅
 
-候補:
-- 画像対応（暗号化blob保存、エディタへの埋め込み）
-- ソートの昇順/降順切り替え
-- PDFエクスポートのMarkdownレンダリング対応
+**小改善（実装済み）:**
+- [x] ソートの昇順/降順切り替え（`sortDirection: "asc" | "desc"` + ↑↓トグルボタン、永続化対応）
+- [x] ノート内検索（`@codemirror/search`、Ctrl+F=検索、Ctrl+H=検索&置換、テーマ対応CSS）
+- [x] PDFエクスポートのMarkdownレンダリング（見出し・リスト・コードブロック・引用・水平線対応）
+- [x] PDFエクスポートの日本語フォント対応
+  - Noto Sans JP Regular (5.1MB) を `public/fonts/` にバンドル
+  - `generateNotePdf()` を `async` 化、初回PDF出力時にフォントを遅延ロード+セッション内キャッシュ
+  - 全テキスト（見出し・本文・コードブロック・引用）をNoto Sans JPで描画
+  - 呼び出し元（`Editor.tsx`, `NoteList.tsx`）に `await` 追加
+
+**画像対応（実装済み）:**
+- [x] 画像の暗号化保存・復号表示（XChaCha20-Poly1305でノートと同レベルの暗号化）
+- [x] クリップボード貼り付け（Ctrl+V）で画像をノートに挿入
+- [x] ツールバーの画像ボタンでファイル選択→挿入
+- [x] ドラッグ&ドロップで画像挿入
+- [x] Markdownプレビューで画像表示（カスタムプロトコル経由）
+- [x] ノート削除時に画像もカスケード削除
+
+**v2（将来）:**
+- エディタ内インラインウィジェット（画像のインライン表示）
+- 画像付きエクスポート/インポート（フォルダ形式）
+- PDFエクスポートに画像埋め込み
+
+**リリース準備:**
+- キャッチコピー見直し（「A knot only you can untie.」→ 要検討）
+- スクリーンショット更新（v0.4.0時点 → 最新UIに）
+- README更新（新機能反映）
 
 ### 将来バージョン（未定）
 
 - E2E暗号化同期（大プロジェクト — ノートアプリとしての体裁が整ってから）
+- 文字数/単語数カウント
+- ノート複製
 - スペルチェック設定
 - Pure Rust GUI移行の検討（ゼロ化の完全対応 — 現時点ではコスト対効果が合わないため保留）
 
@@ -490,6 +541,10 @@ GitHub public化・Zenn記事公開・SECURITY.md・Issue templates 完了。
 | `src/stores/languageStore.ts` | 言語状態管理（ja/en） |
 | `src/stores/fontSizeStore.ts` | フォントサイズ状態管理（small/medium/large） |
 | `src/components/Editor/MarkdownPreview.tsx` | Markdownプレビューコンポーネント |
+| `src-tauri/src/commands/images.rs` | 画像Tauriコマンド（save/get/delete） |
+| `src-tauri/src/storage/images.rs` | 画像ストレージ層（暗号化BLOB CRUD） |
+| `src/lib/imageUtils.ts` | 画像URL生成・抽出・バリデーション |
+| `src/lib/insertImage.ts` | 画像挿入共通ロジック（File/path→暗号化→Markdown挿入） |
 | `src/components/ConfirmDialog.tsx` | 汎用確認ダイアログ（削除確認等） |
 | `src-tauri/src/commands/settings.rs` | 設定ファイル読み書きコマンド |
 | `src/i18n/` | 翻訳システム（translations, hook, backendErrors） |
@@ -548,6 +603,7 @@ npx tsc --noEmit
 | recovery.rs | 3 | リカバリーキー生成・復元 |
 | database.rs | 6 | SQLCipher暗号化、CRUD |
 | notes.rs | 16 | タグCRUD、正規化、カスケード削除、encrypted_title、ソフトデリート、ゴミ箱 |
+| images.rs | 8 | 画像CRUD、カスケード削除、大容量データ |
 | settings.rs | 4 | 設定のシリアライズ・保存・読み込み |
 | auth.rs | 3 | パスワード変更フロー、DEK不変性、現パスワード検証 |
 | mod.rs | 5 | ロックアウト永続化、シリアライズ、状態管理 |
@@ -621,6 +677,11 @@ npx tsc --noEmit
     - テーマ・言語・自動ロック設定を`%LOCALAPPDATA%\knot\settings.json`に保存
     - 各ストアに`applyXxx()`アクション追加（起動時ロード用、保存なし）
     - `App.tsx`で`initialize()`と並行して`loadSettings()`を呼び、ローディング画面中に完了
+30. **Tauriカスタムプロトコルのプラットフォーム差異**: `register_uri_scheme_protocol`で登録したカスタムスキームのURLがOSにより異なる
+    - Windows (WebView2): `https://{scheme}.localhost/{path}`
+    - macOS/Linux: `{scheme}://localhost/{path}`
+    - `convertFileSrc(path, scheme)`で自動切り替え、ハンドラ側は両形式をパース
+    - react-markdownのURL sanitizerはカスタムプロトコルを除去するため`urlTransform`オーバーライドが必須
 27. **セキュリティレビュー対応（2026-02-09）**: 推奨10項目すべて修正
     - **H-2**: `setup_vault`にボールト存在チェック追加（`salt.bin`/`dek.enc`/`knot.db`いずれか存在でエラー）
     - **M-3**: `check_lockout`を`&mut self`に変更、ロックアウト期限切れ時に`failed_attempts`自動リセット

@@ -56,18 +56,19 @@ interface NotesState {
 }
 
 function sortNotes(notes: NoteListItem[]) {
-  const { sortMode } = useSortModeStore.getState();
+  const { sortMode, sortDirection } = useSortModeStore.getState();
+  const dir = sortDirection === "asc" ? 1 : -1;
   notes.sort((a, b) => {
     // Pinned notes first
     if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-    // Then by selected sort mode
+    // Then by selected sort mode and direction
     switch (sortMode) {
       case "created":
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        return dir * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
       case "title":
-        return (a.title || "").localeCompare(b.title || "");
+        return dir * (a.title || "").localeCompare(b.title || "");
       default: // "updated"
-        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+        return dir * (new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime());
     }
   });
 }

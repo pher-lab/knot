@@ -1,11 +1,14 @@
 import { EditorView } from "@codemirror/view";
 import { EditorSelection } from "@codemirror/state";
+import { open } from "@tauri-apps/api/dialog";
 import { useTranslation } from "../../i18n";
+import { insertImageFromPath } from "../../lib/insertImage";
 
 interface ToolbarProps {
   view: EditorView | null;
   isPreview: boolean;
   onTogglePreview: () => void;
+  noteId?: string;
 }
 
 // Toggle wrap: if cursor is inside prefix...suffix, remove them; otherwise wrap/insert
@@ -327,12 +330,39 @@ function EditIcon() {
   );
 }
 
+function ImageIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
+    </svg>
+  );
+}
+
 const btnBase = "p-2 rounded transition-colors";
 const btnNormal = `${btnBase} text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-800`;
 const btnActive = `${btnBase} text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50`;
 
-export function Toolbar({ view, isPreview, onTogglePreview }: ToolbarProps) {
+export function Toolbar({ view, isPreview, onTogglePreview, noteId }: ToolbarProps) {
   const { t } = useTranslation();
+
+  const handleInsertImage = async () => {
+    if (!view || !noteId) return;
+    try {
+      const selected = await open({
+        multiple: false,
+        filters: [
+          {
+            name: "Images",
+            extensions: ["png", "jpg", "jpeg", "gif", "webp"],
+          },
+        ],
+      });
+      if (!selected || Array.isArray(selected)) return;
+      await insertImageFromPath(view, selected, noteId);
+    } catch {
+      // User cancelled or error — silently ignore
+    }
+  };
 
   if (!view && !isPreview) return null;
 
@@ -390,6 +420,13 @@ export function Toolbar({ view, isPreview, onTogglePreview }: ToolbarProps) {
             title={t("toolbar.externalLink")}
           >
             <LinkIcon />
+          </button>
+          <button
+            onClick={handleInsertImage}
+            className={btnNormal}
+            title={t("toolbar.insertImage")}
+          >
+            <ImageIcon />
           </button>
         </>
       )}

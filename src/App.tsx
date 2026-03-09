@@ -68,6 +68,9 @@ function App() {
         if (settings.sort_mode) {
           useSortModeStore.getState().applySortMode(settings.sort_mode as SortMode);
         }
+        if (settings.sort_direction) {
+          useSortModeStore.getState().applySortDirection(settings.sort_direction as "asc" | "desc");
+        }
       }
     };
     start();

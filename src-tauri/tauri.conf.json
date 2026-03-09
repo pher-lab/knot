@@ -8,7 +8,7 @@
   },
   "package": {
     "productName": "Knot",
-    "version": "0.5.0"
+    "version": "0.6.0"
   },
   "tauri": {
     "allowlist": {
@@ -55,7 +55,7 @@
       }
     },
     "security": {
-      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; base-uri 'self'; form-action 'none'"
+      "csp": "default-src 'self'; img-src 'self' knot-image: https://knot-image.localhost data:; style-src 'self' 'unsafe-inline'; base-uri 'self'; form-action 'none'"
     },
     "updater": {
       "active": false
