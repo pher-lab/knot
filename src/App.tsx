@@ -4,6 +4,7 @@ import { useNotesStore } from "./stores/notesStore";
 import { useThemeStore } from "./stores/themeStore";
 import { useLanguageStore } from "./stores/languageStore";
 import { useFontSizeStore, FontSize } from "./stores/fontSizeStore";
+import { useSortModeStore, SortMode } from "./stores/sortModeStore";
 import { useAutoLock } from "./hooks/useAutoLock";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useTranslation } from "./i18n";
@@ -63,6 +64,9 @@ function App() {
         }
         if (settings.font_size) {
           useFontSizeStore.getState().applyFontSize(settings.font_size as FontSize);
+        }
+        if (settings.sort_mode) {
+          useSortModeStore.getState().applySortMode(settings.sort_mode as SortMode);
         }
       }
     };

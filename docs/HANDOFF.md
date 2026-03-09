@@ -2,13 +2,13 @@
 
 ## 現在の状態
 
-**現在バージョン**: v0.4.0-alpha（開発中）
-**前回リリース**: v0.3.1-alpha（2026-02-24）
+**現在バージョン**: v0.5.0-alpha（リリース準備中）
+**前回リリース**: v0.4.0-alpha（2026-03-07）
 
 **プロジェクト初期化**: 完了
 **Rustバックエンド**: 基本実装完了（コンパイル成功）
 **フロントエンド**: 基本UI完成
-**テスト**: 131テスト全てパス（Rust 100 + Frontend 31）
+**テスト**: 143テスト全てパス（Rust 112 + Frontend 31）
 **セキュリティレビュー対応**: 推奨10項目+付随修正 完了 + v0.3.0で H-3/H-5/M-9/L-10 対応
 **インポート/エクスポート**: 実装完了（.mdファイル対応）
 **Welcomeノート**: 実装完了
@@ -270,7 +270,7 @@
 | M-4 | `search_notes`が全ノートメモリ展開 | **受容** — E2E暗号化の性質上、全文検索には全復号が必須 |
 | M-5 | `list_notes`が全ノート復号 | **✅ 修正済み (v0.4.0)** — `encrypted_title`カラム追加、タイトルのみ復号する軽量パスに変更 |
 | M-6 | Mutex保持期間が長い | **保留** — 将来課題 |
-| M-7 | パスワード強度に辞書チェックなし | **保留** — 将来課題 |
+| M-7 | パスワード強度に辞書チェックなし | **✅ 修正済み (v0.5.0)** — ~45個のよくあるパスワード辞書チェック追加 |
 | M-8 | 未知エラーがそのまま表示 | **保留** — 低リスク |
 | M-9 | コピー後のフィードバックなし | **✅ 修正済み (v0.3.0)** — 緑チェックマーク+「コピーしました」表示(2秒) |
 | M-10 | ノート操作エラーが未表示 | **✅ 修正済み** — MainScreenにエラーバナー追加（×ボタンで閉じる） |
@@ -404,12 +404,75 @@ GitHub public化・Zenn記事公開・SECURITY.md・Issue templates 完了。
   - **セキュリティ**: 同じDEK・同じXChaCha20-Poly1305で暗号化、セキュリティレベル変更なし
 - **変更ファイル**: `models/note.rs`, `models/mod.rs`, `storage/database.rs`, `storage/notes.rs`, `commands/notes.rs`, `commands/auth.rs`, `commands/export_import.rs`
 
+### 2026-03-08: コードブロックハイライト & パスワード辞書チェック `v0.5.0`
+- [x] コードブロックのシンタックスハイライト
+  - `rehype-highlight`プラグイン追加、`MarkdownPreview.tsx`で`rehypePlugins={[rehypeHighlight]}`
+  - ライトモード: `highlight.js/styles/github.css`をインポート
+  - ダークモード: `.dark .prose-container .hljs*`で手動オーバーライド（CSS @importはクラススコープ不可のため）
+- [x] パスワード強度の辞書チェック（M-7）
+  - `passwordStrength.ts`に`COMMON_PASSWORDS` Set（~45個）追加
+  - `isCommonPassword()`で大文字小文字無視チェック → レベル1「よくあるパスワード」
+  - 連番パターン追加: `01234567`, `23456789`, `98765432`, `87654321`
+  - i18nキー: `password.common`（ja/en）
+- **変更ファイル**: `MarkdownPreview.tsx`, `index.css`, `passwordStrength.ts`, `translations.ts`, `package.json`
+
+### 2026-03-08: ソフトデリート（ゴミ箱） `v0.5.0`
+- [x] ソフトデリート（ゴミ箱）機能
+  - **DBスキーマ**: `is_deleted INTEGER NOT NULL DEFAULT 0`, `deleted_at TEXT`, `idx_notes_is_deleted`インデックス追加
+  - **モデル**: `EncryptedNote`/`EncryptedNoteHeader`に`is_deleted: bool`, `deleted_at: Option<DateTime<Utc>>`追加
+  - **ストレージ**: 5新メソッド（`soft_delete_note`, `restore_note`, `empty_trash`, `purge_old_trash`, `get_trash_count`）
+    - `list_notes`/`list_notes_metadata`に`deleted: bool`パラメータ追加、ゴミ箱は`deleted_at DESC`ソート
+    - `list_all_tags`/`get_all_note_tags`でゴミ箱ノートのタグを除外（INNER JOIN）
+  - **コマンド**: `delete_note`→ソフトデリートに変更、4新コマンド（`restore_note`, `permanent_delete_note`, `empty_trash`, `get_trash_count`）
+  - **自動パージ**: `unlock_vault`/`recover_vault`で30日超のゴミ箱ノートを自動削除
+  - **エクスポート**: ゴミ箱ノートをエクスポート対象から除外
+  - **フロントエンド**: `viewMode: "notes" | "trash"`でサイドバー切り替え
+    - サイドバー: ゴミ箱トグルボタン（バッジ付き）、「ゴミ箱を空にする」ボタン（ConfirmDialog付き）
+    - ノートリスト: 通常モードは確認なし即ゴミ箱移動、ゴミ箱モードは復元/完全削除コンテキストメニュー
+    - エディタ: ゴミ箱ノートは読み取り専用プレビュー+復元/完全削除ボタン
+    - 通常削除の確認ダイアログ廃止（ゴミ箱がセーフティネット）
+  - **i18n**: ゴミ箱関連約15キー追加（ja/en）
+  - **テスト**: Rust 6件追加（soft_delete, restore, empty_trash, trash_count, purge, tags_excluded）、全112 Rustテスト + 31フロントエンドテスト パス
+- **変更ファイル**: `models/note.rs`, `database.rs`, `notes.rs`, `commands/notes.rs`, `commands/auth.rs`, `commands/export_import.rs`, `main.rs`, `api.ts`, `notesStore.ts`, `translations.ts`, `Sidebar.tsx`, `NoteList.tsx`, `Editor.tsx`
+
+### 2026-03-09: ソートオプション & PDFエクスポート & Welcomeノート更新 `v0.5.0`
+- [x] ノートのソートオプション
+  - `sortModeStore.ts`新設（`SortMode = "updated" | "created" | "title"`）
+  - `sortNotes()`がsortModeを参照して切り替え（ピン優先は維持）
+  - 設定ドロップダウンにソート選択追加
+  - `settings.rs`/`api.ts`/`settingsHelper.ts`/`App.tsx`に`sort_mode`追加で永続化
+  - i18nキー: `sidebar.sort`, `sort.updated/created/title`（ja/en）
+- [x] PDFエクスポート
+  - `src/lib/exportPdf.ts`新設: jsPDFでプレーンテキストPDF生成（ページ分割対応）
+  - `write_file` Rustコマンド新設（バイナリデータをファイルに書き込み）
+  - saveダイアログにMarkdown/PDFの2フィルタ追加、拡張子で分岐
+  - Editor.tsx + NoteList.tsx両方で対応
+  - 注: PDF出力はプレーンテキスト（Markdownレンダリングなし）
+- [x] Welcomeノート更新
+  - v0.4.0/v0.5.0の新機能を反映（プレビュー、タグ、ピン留め、ゴミ箱、インポート/エクスポート、PDF、ソート、フォントサイズ、パスワード変更、復元機能）
+  - 日英両方更新
+- **新規ファイル**: `sortModeStore.ts`, `exportPdf.ts`
+- **変更ファイル**: `settings.rs`, `export_import.rs`, `main.rs`, `api.ts`, `settingsHelper.ts`, `App.tsx`, `notesStore.ts`, `Sidebar.tsx`, `Editor.tsx`, `NoteList.tsx`, `translations.ts`, `welcomeNote.ts`
+
+### v0.5.0 — 完了サマリー ✅
+
+- コードブロックのシンタックスハイライト（rehype-highlight）
+- パスワード辞書チェック（M-7解消）
+- ソフトデリート（ゴミ箱）+ 30日自動パージ
+- ノートソートオプション（更新日/作成日/タイトル）
+- PDFエクスポート（プレーンテキスト）
+- Welcomeノート更新（日英）
+
+### v0.6.0 — 未定
+
+候補:
+- 画像対応（暗号化blob保存、エディタへの埋め込み）
+- ソートの昇順/降順切り替え
+- PDFエクスポートのMarkdownレンダリング対応
+
 ### 将来バージョン（未定）
 
-**セキュリティ改善（レビュー由来）**
-- パスワード強度メーターの改善（M-7: 辞書チェック等）
-
-**その他**
+- E2E暗号化同期（大プロジェクト — ノートアプリとしての体裁が整ってから）
 - スペルチェック設定
 - Pure Rust GUI移行の検討（ゼロ化の完全対応 — 現時点ではコスト対効果が合わないため保留）
 
@@ -484,7 +547,7 @@ npx tsc --noEmit
 | keys.rs | 7 | 鍵導出、パスワードバリエーション |
 | recovery.rs | 3 | リカバリーキー生成・復元 |
 | database.rs | 6 | SQLCipher暗号化、CRUD |
-| notes.rs | 10 | タグCRUD、正規化、カスケード削除、encrypted_title |
+| notes.rs | 16 | タグCRUD、正規化、カスケード削除、encrypted_title、ソフトデリート、ゴミ箱 |
 | settings.rs | 4 | 設定のシリアライズ・保存・読み込み |
 | auth.rs | 3 | パスワード変更フロー、DEK不変性、現パスワード検証 |
 | mod.rs | 5 | ロックアウト永続化、シリアライズ、状態管理 |

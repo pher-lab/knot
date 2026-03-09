@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "highlight.js/styles/github.css" layer(base);
 
 /* Dark mode variant using class strategy */
 @custom-variant dark (&:where(.dark, .dark *));
@@ -117,3 +118,26 @@
 
 /* Images */
 .prose-container img { max-width: 100%; border-radius: 4px; margin: 0.75em 0; }
+
+/* Code syntax highlighting — dark mode overrides (github-dark colors) */
+.dark .prose-container .hljs { color: #c9d1d9; background: transparent; }
+.dark .prose-container .hljs-comment,
+.dark .prose-container .hljs-quote { color: #8b949e; }
+.dark .prose-container .hljs-keyword,
+.dark .prose-container .hljs-selector-tag { color: #ff7b72; }
+.dark .prose-container .hljs-string,
+.dark .prose-container .hljs-doctag,
+.dark .prose-container .hljs-addition { color: #a5d6ff; }
+.dark .prose-container .hljs-number,
+.dark .prose-container .hljs-literal { color: #79c0ff; }
+.dark .prose-container .hljs-title,
+.dark .prose-container .hljs-title.function_,
+.dark .prose-container .hljs-section { color: #d2a8ff; }
+.dark .prose-container .hljs-built_in,
+.dark .prose-container .hljs-type,
+.dark .prose-container .hljs-variable { color: #ffa657; }
+.dark .prose-container .hljs-attr,
+.dark .prose-container .hljs-meta { color: #79c0ff; }
+.dark .prose-container .hljs-deletion { color: #ffa198; }
+.dark .prose-container .hljs-symbol,
+.dark .prose-container .hljs-bullet { color: #f2cc60; }

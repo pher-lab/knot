@@ -109,6 +109,36 @@ impl Database {
             conn.execute_batch("ALTER TABLE notes ADD COLUMN encrypted_title BLOB")?;
         }
 
+        // Migration: add is_deleted column if not exists
+        let has_is_deleted: bool = conn
+            .prepare(
+                "SELECT COUNT(*) FROM pragma_table_info('notes') WHERE name = 'is_deleted'",
+            )?
+            .query_row([], |row| row.get::<_, i64>(0))
+            .map(|count| count > 0)?;
+
+        if !has_is_deleted {
+            conn.execute_batch(
+                "ALTER TABLE notes ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0",
+            )?;
+        }
+
+        // Migration: add deleted_at column if not exists
+        let has_deleted_at: bool = conn
+            .prepare(
+                "SELECT COUNT(*) FROM pragma_table_info('notes') WHERE name = 'deleted_at'",
+            )?
+            .query_row([], |row| row.get::<_, i64>(0))
+            .map(|count| count > 0)?;
+
+        if !has_deleted_at {
+            conn.execute_batch("ALTER TABLE notes ADD COLUMN deleted_at TEXT")?;
+        }
+
+        conn.execute_batch(
+            "CREATE INDEX IF NOT EXISTS idx_notes_is_deleted ON notes(is_deleted);",
+        )?;
+
         // Migration: create note_tags table
         conn.execute_batch(
             r#"

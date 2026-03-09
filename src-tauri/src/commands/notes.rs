@@ -39,6 +39,7 @@ pub struct NoteListItem {
     pub updated_at: String,
     pub pinned: bool,
     pub tags: Vec<String>,
+    pub deleted_at: Option<String>,
 }
 
 /// Create a new note
@@ -69,6 +70,8 @@ pub fn create_note(
         created_at: note.created_at,
         updated_at: note.updated_at,
         pinned: false,
+        is_deleted: false,
+        deleted_at: None,
     };
 
     db.save_note(&encrypted_note).map_err(|e| e.to_string())?;
@@ -144,6 +147,8 @@ pub fn update_note(
         created_at: note.created_at,
         updated_at: note.updated_at,
         pinned: encrypted_note.pinned,
+        is_deleted: encrypted_note.is_deleted,
+        deleted_at: encrypted_note.deleted_at,
     };
 
     db.save_note(&new_encrypted_note).map_err(|e| e.to_string())?;
@@ -152,9 +157,45 @@ pub fn update_note(
     Ok(NoteResponse::from_note_with_tags(note, tags))
 }
 
-/// Delete a note
+/// Move a note to trash (soft delete)
 #[tauri::command]
 pub fn delete_note(state: State<'_, StateWrapper>, id: String) -> Result<bool, String> {
+    let app_state = state.lock().map_err(|_| "Failed to lock state")?;
+
+    let db = app_state.db.as_ref().ok_or("Vault is locked")?;
+
+    let uuid = Uuid::parse_str(&id).map_err(|_| "Invalid note ID")?;
+
+    let deleted = db.soft_delete_note(&uuid).map_err(|e| e.to_string())?;
+
+    if !deleted {
+        return Err("Note not found".to_string());
+    }
+
+    Ok(true)
+}
+
+/// Restore a note from trash
+#[tauri::command]
+pub fn restore_note(state: State<'_, StateWrapper>, id: String) -> Result<bool, String> {
+    let app_state = state.lock().map_err(|_| "Failed to lock state")?;
+
+    let db = app_state.db.as_ref().ok_or("Vault is locked")?;
+
+    let uuid = Uuid::parse_str(&id).map_err(|_| "Invalid note ID")?;
+
+    let restored = db.restore_note(&uuid).map_err(|e| e.to_string())?;
+
+    if !restored {
+        return Err("Note not found".to_string());
+    }
+
+    Ok(true)
+}
+
+/// Permanently delete a note
+#[tauri::command]
+pub fn permanent_delete_note(state: State<'_, StateWrapper>, id: String) -> Result<bool, String> {
     let app_state = state.lock().map_err(|_| "Failed to lock state")?;
 
     let db = app_state.db.as_ref().ok_or("Vault is locked")?;
@@ -170,18 +211,44 @@ pub fn delete_note(state: State<'_, StateWrapper>, id: String) -> Result<bool, S
     Ok(true)
 }
 
+/// Empty trash (permanently delete all trashed notes)
+#[tauri::command]
+pub fn empty_trash(state: State<'_, StateWrapper>) -> Result<u32, String> {
+    let app_state = state.lock().map_err(|_| "Failed to lock state")?;
+
+    let db = app_state.db.as_ref().ok_or("Vault is locked")?;
+
+    let count = db.empty_trash().map_err(|e| e.to_string())?;
+    Ok(count)
+}
+
+/// Get the number of notes in trash
+#[tauri::command]
+pub fn get_trash_count(state: State<'_, StateWrapper>) -> Result<u32, String> {
+    let app_state = state.lock().map_err(|_| "Failed to lock state")?;
+
+    let db = app_state.db.as_ref().ok_or("Vault is locked")?;
+
+    let count = db.get_trash_count().map_err(|e| e.to_string())?;
+    Ok(count)
+}
+
 /// List all notes (metadata only, no content decryption)
 /// Uses encrypted_title for fast title decryption without loading full note blobs.
 /// Falls back to full decryption for pre-migration notes.
 #[tauri::command]
-pub fn list_notes(state: State<'_, StateWrapper>) -> Result<Vec<NoteListItem>, String> {
+pub fn list_notes(
+    state: State<'_, StateWrapper>,
+    deleted: Option<bool>,
+) -> Result<Vec<NoteListItem>, String> {
     let app_state = state.lock().map_err(|_| "Failed to lock state")?;
 
     let dek = app_state.dek.as_ref().ok_or("Vault is locked")?;
     let db = app_state.db.as_ref().ok_or("Vault is locked")?;
 
-    let headers = db.list_notes_metadata().map_err(|e| e.to_string())?;
-    let all_tags = db.get_all_note_tags().map_err(|e| e.to_string())?;
+    let is_deleted = deleted.unwrap_or(false);
+    let headers = db.list_notes_metadata(is_deleted).map_err(|e| e.to_string())?;
+    let all_tags = db.get_all_note_tags(is_deleted).map_err(|e| e.to_string())?;
 
     let mut items = Vec::with_capacity(headers.len());
     for hdr in headers {
@@ -219,6 +286,7 @@ pub fn list_notes(state: State<'_, StateWrapper>) -> Result<Vec<NoteListItem>, S
             updated_at: hdr.updated_at.to_rfc3339(),
             pinned: hdr.pinned,
             tags,
+            deleted_at: hdr.deleted_at.map(|dt| dt.to_rfc3339()),
         });
     }
 
@@ -238,8 +306,8 @@ pub fn search_notes(
     let dek = app_state.dek.as_ref().ok_or("Vault is locked")?;
     let db = app_state.db.as_ref().ok_or("Vault is locked")?;
 
-    let encrypted_notes = db.list_notes().map_err(|e| e.to_string())?;
-    let all_tags = db.get_all_note_tags().map_err(|e| e.to_string())?;
+    let encrypted_notes = db.list_notes(false).map_err(|e| e.to_string())?;
+    let all_tags = db.get_all_note_tags(false).map_err(|e| e.to_string())?;
 
     // Split query into terms for AND search: "a b" matches notes containing both "a" and "b"
     let terms: Vec<String> = query
@@ -280,6 +348,7 @@ pub fn search_notes(
                 updated_at: note.updated_at.to_rfc3339(),
                 pinned: enc.pinned,
                 tags,
+                deleted_at: None,
             });
         }
     }

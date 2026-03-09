@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import * as api from "../lib/api";
 import type { NoteListItem, NoteResponse } from "../lib/api";
+import { useSortModeStore } from "./sortModeStore";
 
 interface PendingSave {
   id: string;
@@ -20,6 +21,8 @@ interface NotesState {
   error: string | null;
   allTags: string[];
   selectedTag: string | null;
+  viewMode: "notes" | "trash";
+  trashCount: number;
 
   // Actions
   loadNotes: () => Promise<void>;
@@ -44,14 +47,28 @@ interface NotesState {
   setNoteTags: (id: string, tags: string[]) => Promise<void>;
   loadAllTags: () => Promise<void>;
   filterByTag: (tag: string | null) => void;
+  // Trash
+  setViewMode: (mode: "notes" | "trash") => Promise<void>;
+  restoreNote: (id: string) => Promise<boolean>;
+  permanentDeleteNote: (id: string) => Promise<boolean>;
+  emptyTrash: () => Promise<boolean>;
+  loadTrashCount: () => Promise<void>;
 }
 
 function sortNotes(notes: NoteListItem[]) {
+  const { sortMode } = useSortModeStore.getState();
   notes.sort((a, b) => {
     // Pinned notes first
     if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-    // Then by updated_at descending
-    return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+    // Then by selected sort mode
+    switch (sortMode) {
+      case "created":
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      case "title":
+        return (a.title || "").localeCompare(b.title || "");
+      default: // "updated"
+        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+    }
   });
 }
 
@@ -67,14 +84,18 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   error: null,
   allTags: [],
   selectedTag: null,
+  viewMode: "notes",
+  trashCount: 0,
 
   loadNotes: async () => {
     set({ isLoading: true, error: null });
     try {
-      const notes = await api.listNotes();
-      sortNotes(notes);
+      const { viewMode } = get();
+      const notes = await api.listNotes(viewMode === "trash");
+      if (viewMode !== "trash") sortNotes(notes);
       set({ notes, isLoading: false });
-      get().loadAllTags();
+      if (viewMode === "notes") get().loadAllTags();
+      get().loadTrashCount();
     } catch (e) {
       set({ error: String(e), isLoading: false });
     }
@@ -148,6 +169,11 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   },
 
   deleteNote: async (id) => {
+    // Cancel pending save for this note (it's going to trash)
+    const { pendingSave } = get();
+    if (pendingSave && pendingSave.id === id) {
+      set({ pendingSave: null });
+    }
     set({ isSaving: true, error: null });
     try {
       await api.deleteNote(id);
@@ -160,6 +186,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
         isSaving: false,
       });
       get().loadAllTags();
+      get().loadTrashCount();
       return true;
     } catch (e) {
       set({ error: String(e), isSaving: false });
@@ -198,6 +225,8 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       error: null,
       allTags: [],
       selectedTag: null,
+      viewMode: "notes",
+      trashCount: 0,
     }),
 
   setPendingSave: (data) => set({ pendingSave: data }),
@@ -261,7 +290,10 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   },
 
   navigateToNoteByTitle: async (title: string) => {
-    const { findNoteByTitle, selectNote, createNoteWithTitle } = get();
+    const { viewMode, setViewMode, findNoteByTitle, selectNote, createNoteWithTitle } = get();
+    if (viewMode === "trash") {
+      await setViewMode("notes");
+    }
     const existingNote = findNoteByTitle(title);
 
     if (existingNote) {
@@ -307,5 +339,74 @@ export const useNotesStore = create<NotesState>((set, get) => ({
 
   filterByTag: (tag: string | null) => {
     set({ selectedTag: tag });
+  },
+
+  // Trash
+  setViewMode: async (mode) => {
+    set({
+      viewMode: mode,
+      selectedNoteId: null,
+      currentNote: null,
+      searchQuery: "",
+      selectedTag: null,
+    });
+    await get().loadNotes();
+  },
+
+  restoreNote: async (id) => {
+    try {
+      await api.restoreNote(id);
+      const { notes, selectedNoteId } = get();
+      const filteredNotes = notes.filter((n) => n.id !== id);
+      set({
+        notes: filteredNotes,
+        selectedNoteId: selectedNoteId === id ? null : selectedNoteId,
+        currentNote: selectedNoteId === id ? null : get().currentNote,
+      });
+      get().loadTrashCount();
+      return true;
+    } catch (e) {
+      set({ error: String(e) });
+      return false;
+    }
+  },
+
+  permanentDeleteNote: async (id) => {
+    try {
+      await api.permanentDeleteNote(id);
+      const { notes, selectedNoteId } = get();
+      const filteredNotes = notes.filter((n) => n.id !== id);
+      set({
+        notes: filteredNotes,
+        selectedNoteId: selectedNoteId === id ? null : selectedNoteId,
+        currentNote: selectedNoteId === id ? null : get().currentNote,
+      });
+      get().loadTrashCount();
+      return true;
+    } catch (e) {
+      set({ error: String(e) });
+      return false;
+    }
+  },
+
+  emptyTrash: async () => {
+    try {
+      await api.emptyTrash();
+      set({ notes: [], selectedNoteId: null, currentNote: null });
+      get().loadTrashCount();
+      return true;
+    } catch (e) {
+      set({ error: String(e) });
+      return false;
+    }
+  },
+
+  loadTrashCount: async () => {
+    try {
+      const trashCount = await api.getTrashCount();
+      set({ trashCount });
+    } catch {
+      // Non-critical
+    }
   },
 }));

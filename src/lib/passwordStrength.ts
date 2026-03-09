@@ -6,9 +6,32 @@ export type PasswordStrength = {
   color: string;
 };
 
+// Common weak passwords (lowercase for case-insensitive matching)
+const COMMON_PASSWORDS = new Set([
+  "password", "12345678", "123456789", "1234567890", "qwerty123",
+  "abcdefgh", "abc12345", "password1", "iloveyou", "sunshine",
+  "princess", "football", "charlie1", "access14", "trustno1",
+  "letmein1", "master12", "dragon12", "monkey12", "shadow12",
+  "michael1", "jennifer", "11111111", "00000000", "88888888",
+  "12341234", "abcd1234", "qwertyui", "asdfghjk", "zxcvbnm1",
+  "baseball", "superman", "computer", "internet", "whatever",
+  "passw0rd", "p@ssword", "p@ssw0rd", "admin123", "welcome1",
+  "starwars", "pokemon1", "corvette", "kawasaki", "samantha",
+  "01234567", "12345678", "23456789", "98765432", "87654321",
+]);
+
+function isCommonPassword(password: string): boolean {
+  return COMMON_PASSWORDS.has(password.toLowerCase());
+}
+
 export function calculatePasswordStrength(password: string): PasswordStrength {
   if (password.length === 0) {
     return { level: 0, label: "", color: "bg-gray-300 dark:bg-gray-600" };
+  }
+
+  // Dictionary check: common passwords are always weak
+  if (isCommonPassword(password)) {
+    return { level: 1, label: getTranslation("password.common"), color: "bg-red-500" };
   }
 
   let score = 0;

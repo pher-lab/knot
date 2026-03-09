@@ -5,6 +5,7 @@ import { useAuthStore } from "../../stores/authStore";
 import { useThemeStore, Theme } from "../../stores/themeStore";
 import { useLanguageStore, Language } from "../../stores/languageStore";
 import { useFontSizeStore, FontSize } from "../../stores/fontSizeStore";
+import { useSortModeStore, SortMode } from "../../stores/sortModeStore";
 import { useTranslation } from "../../i18n";
 import { getWelcomeNote } from "../../lib/welcomeNote";
 import * as api from "../../lib/api";
@@ -14,17 +15,19 @@ import { ChangePasswordModal } from "./ChangePasswordModal";
 import { ConfirmDialog } from "../ConfirmDialog";
 
 export function Sidebar() {
-  const { loadNotes, createNote, selectNote, notes, isLoading } = useNotesStore();
+  const { loadNotes, createNote, selectNote, notes, isLoading, viewMode, trashCount, setViewMode, emptyTrash } = useNotesStore();
   const { lock, autoLockMinutes, setAutoLockMinutes } = useAuthStore();
   const { theme, setTheme } = useThemeStore();
   const { language, setLanguage } = useLanguageStore();
   const { fontSize, setFontSize } = useFontSizeStore();
+  const { sortMode, setSortMode } = useSortModeStore();
   const { t } = useTranslation();
   const [isCreating, setIsCreating] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showActions, setShowActions] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showRestoreWelcome, setShowRestoreWelcome] = useState(false);
+  const [showEmptyTrash, setShowEmptyTrash] = useState(false);
   const buttonsRef = useRef<HTMLDivElement>(null);
 
   // Close dropdowns when clicking outside the buttons group
@@ -141,6 +144,22 @@ export function Sidebar() {
               <MoreIcon />
             </button>
             <button
+              onClick={() => setViewMode(viewMode === "trash" ? "notes" : "trash")}
+              className={`relative p-1.5 rounded transition-colors ${
+                viewMode === "trash"
+                  ? "text-red-500 dark:text-red-400 bg-gray-300 dark:bg-gray-700"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-300 dark:hover:bg-gray-700"
+              }`}
+              title={t("sidebar.trash")}
+            >
+              <TrashSidebarIcon />
+              {trashCount > 0 && viewMode !== "trash" && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 px-0.5 text-[9px] font-medium leading-3.5 text-center text-gray-500 dark:text-gray-400 bg-gray-300 dark:bg-gray-600 rounded-full">
+                  {trashCount > 99 ? "99+" : trashCount}
+                </span>
+              )}
+            </button>
+            <button
               onClick={lock}
               className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-300 dark:hover:bg-gray-700 rounded transition-colors"
               title={t("sidebar.lock")}
@@ -200,6 +219,18 @@ export function Sidebar() {
                     <option value="large">{t("sidebar.fontLarge")}</option>
                   </select>
                 </div>
+                <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-600">
+                  <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">{t("sidebar.sort")}</label>
+                  <select
+                    value={sortMode}
+                    onChange={(e) => { setSortMode(e.target.value as SortMode); loadNotes(); }}
+                    className="w-full bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white text-sm rounded px-2 py-1 border border-gray-300 dark:border-gray-500 focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="updated">{t("sort.updated")}</option>
+                    <option value="created">{t("sort.created")}</option>
+                    <option value="title">{t("sort.title")}</option>
+                  </select>
+                </div>
                 <div className="px-3 py-2">
                   <button
                     onClick={() => { setShowChangePassword(true); setShowSettings(false); }}
@@ -236,29 +267,47 @@ export function Sidebar() {
             )}
           </div>
         </div>
-        <button
-          onClick={handleCreateNote}
-          disabled={isCreating}
-          className="w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white rounded-lg text-sm font-medium transition-colors"
-        >
-          {isCreating ? t("sidebar.creating") : t("sidebar.newNote")}
-        </button>
+        {viewMode === "notes" && (
+          <button
+            onClick={handleCreateNote}
+            disabled={isCreating}
+            className="w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            {isCreating ? t("sidebar.creating") : t("sidebar.newNote")}
+          </button>
+        )}
+        {viewMode === "trash" && (
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t("sidebar.trash")}</span>
+            <button
+              onClick={() => setShowEmptyTrash(true)}
+              disabled={notes.length === 0}
+              className="text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {t("sidebar.emptyTrash")}
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Search */}
-      <div className="p-3 border-b border-gray-300 dark:border-gray-700">
-        <SearchBar />
-      </div>
+      {/* Search (notes mode only) */}
+      {viewMode === "notes" && (
+        <div className="p-3 border-b border-gray-300 dark:border-gray-700">
+          <SearchBar />
+        </div>
+      )}
 
-      {/* Tag Filter */}
-      <TagFilter />
+      {/* Tag Filter (notes mode only) */}
+      {viewMode === "notes" && <TagFilter />}
 
       {/* Note List */}
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
           <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">{t("sidebar.loading")}</div>
         ) : notes.length === 0 ? (
-          <div className="p-4 text-center text-gray-500 text-sm">{t("sidebar.noNotes")}</div>
+          <div className="p-4 text-center text-gray-500 text-sm">
+            {viewMode === "trash" ? t("sidebar.noTrash") : t("sidebar.noNotes")}
+          </div>
         ) : (
           <NoteList />
         )}
@@ -266,6 +315,17 @@ export function Sidebar() {
 
       {showChangePassword && (
         <ChangePasswordModal onClose={() => setShowChangePassword(false)} />
+      )}
+      {showEmptyTrash && (
+        <ConfirmDialog
+          title={t("confirm.emptyTrashTitle")}
+          message={t("confirm.emptyTrashMessage")}
+          confirmLabel={t("confirm.emptyTrash")}
+          cancelLabel={t("confirm.cancel")}
+          variant="danger"
+          onConfirm={async () => { setShowEmptyTrash(false); await emptyTrash(); }}
+          onCancel={() => setShowEmptyTrash(false)}
+        />
       )}
       {showRestoreWelcome && (
         <ConfirmDialog
@@ -321,6 +381,19 @@ function LockIcon() {
         strokeLinejoin="round"
         strokeWidth={2}
         d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+      />
+    </svg>
+  );
+}
+
+function TrashSidebarIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
       />
     </svg>
   );

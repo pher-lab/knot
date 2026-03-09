@@ -93,7 +93,7 @@ pub fn export_all_notes(
         return Err("Invalid directory".to_string());
     }
 
-    let encrypted_notes = db.list_notes().map_err(|e| e.to_string())?;
+    let encrypted_notes = db.list_notes(false).map_err(|e| e.to_string())?;
 
     let mut count: u32 = 0;
     for enc in encrypted_notes {
@@ -121,6 +121,12 @@ pub fn export_all_notes(
     }
 
     Ok(count)
+}
+
+/// Write binary data to a file (used for PDF export from frontend)
+#[tauri::command]
+pub fn write_file(file_path: String, data: Vec<u8>) -> Result<(), String> {
+    fs::write(&file_path, &data).map_err(|e| format!("Failed to write file: {}", e))
 }
 
 /// Import .md files as notes
@@ -165,6 +171,8 @@ pub fn import_notes(
             created_at: note.created_at,
             updated_at: note.updated_at,
             pinned: false,
+            is_deleted: false,
+            deleted_at: None,
         };
 
         db.save_note(&encrypted_note).map_err(|e| e.to_string())?;

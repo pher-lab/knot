@@ -11,6 +11,7 @@ import { useThemeStore } from "../../stores/themeStore";
 import { useFontSizeStore, FontSize } from "../../stores/fontSizeStore";
 import { useTranslation } from "../../i18n";
 import * as api from "../../lib/api";
+import { generateNotePdf } from "../../lib/exportPdf";
 import { wikilink } from "./wikilink";
 import { Toolbar } from "./Toolbar";
 import { MarkdownPreview } from "./MarkdownPreview";
@@ -434,7 +435,7 @@ function TagEditor({ noteId, tags, allTags, onSetTags }: {
 }
 
 export function Editor() {
-  const { currentNote, updateNote, deleteNote, togglePin, notes, isSaving, pendingSave, setPendingSave, navigateToNoteByTitle, setNoteTags, allTags } = useNotesStore();
+  const { currentNote, updateNote, deleteNote, togglePin, notes, isSaving, pendingSave, setPendingSave, navigateToNoteByTitle, setNoteTags, allTags, viewMode, restoreNote, permanentDeleteNote } = useNotesStore();
   const resolvedTheme = useThemeStore((s) => s.resolvedTheme);
   const fontSize = useFontSizeStore((s) => s.fontSize);
   const { t } = useTranslation();
@@ -501,16 +502,8 @@ export function Editor() {
     }
   };
 
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!currentNote) return;
-    setShowDeleteConfirm(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!currentNote) return;
-    setShowDeleteConfirm(false);
     await deleteNote(currentNote.id);
   };
 
@@ -520,10 +513,19 @@ export function Editor() {
       const noteTitle = currentNote.title || "Untitled";
       const path = await save({
         defaultPath: `${noteTitle}.md`,
-        filters: [{ name: "Markdown", extensions: ["md"] }],
+        filters: [
+          { name: "Markdown", extensions: ["md"] },
+          { name: "PDF", extensions: ["pdf"] },
+        ],
       });
       if (!path) return;
-      await api.exportNote(currentNote.id, path);
+      if (path.toLowerCase().endsWith(".pdf")) {
+        const content = viewRef.current?.state.doc.toString() ?? currentNote.content;
+        const pdfData = generateNotePdf(noteTitle, content);
+        await api.writeFile(path, Array.from(pdfData));
+      } else {
+        await api.exportNote(currentNote.id, path);
+      }
       alert(t("export.success"));
     } catch {
       alert(t("export.error"));
@@ -634,6 +636,11 @@ export function Editor() {
     );
   }
 
+  // Trash mode: read-only view
+  if (viewMode === "trash") {
+    return <TrashNoteView note={currentNote} onRestore={restoreNote} onPermanentDelete={permanentDeleteNote} />;
+  }
+
   return (
     <div className="flex-1 min-w-0 bg-gray-50 dark:bg-gray-900 flex flex-col h-screen overflow-hidden">
       {/* Title */}
@@ -700,15 +707,70 @@ export function Editor() {
         />
       )}
 
-      {showDeleteConfirm && (
+    </div>
+  );
+}
+
+function TrashNoteView({
+  note,
+  onRestore,
+  onPermanentDelete,
+}: {
+  note: { id: string; title: string; content: string };
+  onRestore: (id: string) => Promise<boolean>;
+  onPermanentDelete: (id: string) => Promise<boolean>;
+}) {
+  const { t } = useTranslation();
+  const fontSize = useFontSizeStore((s) => s.fontSize);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const navigateToNoteByTitle = useNotesStore((s) => s.navigateToNoteByTitle);
+
+  const handleWikilinkClick = useCallback((linkTitle: string) => {
+    navigateToNoteByTitle(linkTitle);
+  }, [navigateToNoteByTitle]);
+
+  return (
+    <div className="flex-1 min-w-0 bg-gray-50 dark:bg-gray-900 flex flex-col h-screen overflow-hidden">
+      {/* Title (read-only) */}
+      <div className="border-b border-gray-200 dark:border-gray-800 px-6 py-4">
+        <div className="text-2xl font-bold text-gray-900 dark:text-white">
+          {note.title || t("noteList.untitled")}
+        </div>
+        <div className="flex items-center gap-2 mt-3">
+          <button
+            onClick={() => onRestore(note.id)}
+            className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          >
+            {t("trash.restore")}
+          </button>
+          <button
+            onClick={() => setShowConfirm(true)}
+            className="px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+          >
+            {t("trash.permanentDelete")}
+          </button>
+        </div>
+      </div>
+
+      {/* Content (read-only preview) */}
+      <MarkdownPreview
+        content={note.content}
+        fontSize={fontSize}
+        onWikilinkClick={handleWikilinkClick}
+      />
+
+      {showConfirm && (
         <ConfirmDialog
-          title={t("confirm.deleteNoteTitle")}
-          message={t("confirm.deleteNoteMessage")}
-          confirmLabel={t("confirm.deleteNote")}
+          title={t("confirm.permanentDeleteTitle")}
+          message={t("confirm.permanentDeleteMessage")}
+          confirmLabel={t("confirm.permanentDelete")}
           cancelLabel={t("confirm.cancel")}
           variant="danger"
-          onConfirm={confirmDelete}
-          onCancel={() => setShowDeleteConfirm(false)}
+          onConfirm={async () => {
+            setShowConfirm(false);
+            await onPermanentDelete(note.id);
+          }}
+          onCancel={() => setShowConfirm(false)}
         />
       )}
     </div>

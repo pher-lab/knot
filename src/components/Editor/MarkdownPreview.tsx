@@ -1,5 +1,6 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
 import { useMemo } from "react";
 import type { FontSize } from "../../stores/fontSizeStore";
 
@@ -31,6 +32,7 @@ export function MarkdownPreview({ content, fontSize, onWikilinkClick }: Markdown
     >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeHighlight]}
         components={{
           a({ href, children, node, ...props }) {
             if (href?.startsWith("#wikilink:")) {

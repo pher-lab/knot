@@ -31,6 +31,23 @@ fn row_to_encrypted_note(row: &Row<'_>) -> Result<EncryptedNote, rusqlite::Error
         })?
         .with_timezone(&Utc);
 
+    let is_deleted: i64 = row.get(6)?;
+    let deleted_at_str: Option<String> = row.get(7)?;
+
+    let deleted_at = deleted_at_str
+        .map(|s| {
+            DateTime::parse_from_rfc3339(&s)
+                .map(|dt| dt.with_timezone(&Utc))
+                .map_err(|e| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        7,
+                        rusqlite::types::Type::Text,
+                        Box::new(e),
+                    )
+                })
+        })
+        .transpose()?;
+
     Ok(EncryptedNote {
         id,
         encrypted_data,
@@ -38,6 +55,8 @@ fn row_to_encrypted_note(row: &Row<'_>) -> Result<EncryptedNote, rusqlite::Error
         created_at,
         updated_at,
         pinned: pinned != 0,
+        is_deleted: is_deleted != 0,
+        deleted_at,
     })
 }
 
@@ -64,12 +83,31 @@ fn row_to_encrypted_note_header(row: &Row<'_>) -> Result<EncryptedNoteHeader, ru
         })?
         .with_timezone(&Utc);
 
+    let is_deleted: i64 = row.get(5)?;
+    let deleted_at_str: Option<String> = row.get(6)?;
+
+    let deleted_at = deleted_at_str
+        .map(|s| {
+            DateTime::parse_from_rfc3339(&s)
+                .map(|dt| dt.with_timezone(&Utc))
+                .map_err(|e| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        6,
+                        rusqlite::types::Type::Text,
+                        Box::new(e),
+                    )
+                })
+        })
+        .transpose()?;
+
     Ok(EncryptedNoteHeader {
         id,
         encrypted_title,
         created_at,
         updated_at,
         pinned: pinned != 0,
+        is_deleted: is_deleted != 0,
+        deleted_at,
     })
 }
 
@@ -77,8 +115,8 @@ impl Database {
     pub fn save_note(&self, note: &EncryptedNote) -> Result<(), rusqlite::Error> {
         self.connection().execute(
             r#"
-            INSERT INTO notes (id, encrypted_data, encrypted_title, created_at, updated_at, pinned)
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+            INSERT INTO notes (id, encrypted_data, encrypted_title, created_at, updated_at, pinned, is_deleted, deleted_at)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
             ON CONFLICT(id) DO UPDATE SET
                 encrypted_data = excluded.encrypted_data,
                 encrypted_title = excluded.encrypted_title,
@@ -91,6 +129,8 @@ impl Database {
                 note.created_at.to_rfc3339(),
                 note.updated_at.to_rfc3339(),
                 note.pinned as i64,
+                note.is_deleted as i64,
+                note.deleted_at.map(|dt| dt.to_rfc3339()),
             ],
         )?;
         Ok(())
@@ -98,7 +138,7 @@ impl Database {
 
     pub fn get_note(&self, id: &Uuid) -> Result<Option<EncryptedNote>, rusqlite::Error> {
         let mut stmt = self.connection().prepare(
-            "SELECT id, encrypted_data, created_at, updated_at, pinned, encrypted_title FROM notes WHERE id = ?1",
+            "SELECT id, encrypted_data, created_at, updated_at, pinned, encrypted_title, is_deleted, deleted_at FROM notes WHERE id = ?1",
         )?;
 
         let note = stmt.query_row(params![id.to_string()], row_to_encrypted_note);
@@ -121,24 +161,29 @@ impl Database {
         Ok(rows > 0)
     }
 
-    pub fn list_notes(&self) -> Result<Vec<EncryptedNote>, rusqlite::Error> {
-        let mut stmt = self.connection().prepare(
-            "SELECT id, encrypted_data, created_at, updated_at, pinned, encrypted_title FROM notes ORDER BY pinned DESC, updated_at DESC",
-        )?;
-
+    pub fn list_notes(&self, deleted: bool) -> Result<Vec<EncryptedNote>, rusqlite::Error> {
+        let sql = if deleted {
+            "SELECT id, encrypted_data, created_at, updated_at, pinned, encrypted_title, is_deleted, deleted_at FROM notes WHERE is_deleted = 1 ORDER BY deleted_at DESC"
+        } else {
+            "SELECT id, encrypted_data, created_at, updated_at, pinned, encrypted_title, is_deleted, deleted_at FROM notes WHERE is_deleted = 0 ORDER BY pinned DESC, updated_at DESC"
+        };
+        let mut stmt = self.connection().prepare(sql)?;
         let notes = stmt.query_map([], row_to_encrypted_note)?;
-
         notes.collect()
     }
 
     /// List note headers without encrypted_data (lightweight, for sidebar).
-    pub fn list_notes_metadata(&self) -> Result<Vec<EncryptedNoteHeader>, rusqlite::Error> {
-        let mut stmt = self.connection().prepare(
-            "SELECT id, encrypted_title, created_at, updated_at, pinned FROM notes ORDER BY pinned DESC, updated_at DESC",
-        )?;
-
+    pub fn list_notes_metadata(
+        &self,
+        deleted: bool,
+    ) -> Result<Vec<EncryptedNoteHeader>, rusqlite::Error> {
+        let sql = if deleted {
+            "SELECT id, encrypted_title, created_at, updated_at, pinned, is_deleted, deleted_at FROM notes WHERE is_deleted = 1 ORDER BY deleted_at DESC"
+        } else {
+            "SELECT id, encrypted_title, created_at, updated_at, pinned, is_deleted, deleted_at FROM notes WHERE is_deleted = 0 ORDER BY pinned DESC, updated_at DESC"
+        };
+        let mut stmt = self.connection().prepare(sql)?;
         let notes = stmt.query_map([], row_to_encrypted_note_header)?;
-
         notes.collect()
     }
 
@@ -193,6 +238,57 @@ impl Database {
         Ok(())
     }
 
+    pub fn soft_delete_note(&self, id: &Uuid) -> Result<bool, rusqlite::Error> {
+        let now = Utc::now().to_rfc3339();
+        let rows = self.connection().execute(
+            "UPDATE notes SET is_deleted = 1, deleted_at = ?1, pinned = 0 WHERE id = ?2",
+            params![now, id.to_string()],
+        )?;
+        Ok(rows > 0)
+    }
+
+    pub fn restore_note(&self, id: &Uuid) -> Result<bool, rusqlite::Error> {
+        let rows = self.connection().execute(
+            "UPDATE notes SET is_deleted = 0, deleted_at = NULL WHERE id = ?1",
+            params![id.to_string()],
+        )?;
+        Ok(rows > 0)
+    }
+
+    pub fn empty_trash(&self) -> Result<u32, rusqlite::Error> {
+        self.connection().execute(
+            "DELETE FROM note_tags WHERE note_id IN (SELECT id FROM notes WHERE is_deleted = 1)",
+            [],
+        )?;
+        let rows = self.connection().execute(
+            "DELETE FROM notes WHERE is_deleted = 1",
+            [],
+        )?;
+        Ok(rows as u32)
+    }
+
+    pub fn purge_old_trash(&self, older_than: &DateTime<Utc>) -> Result<u32, rusqlite::Error> {
+        let cutoff = older_than.to_rfc3339();
+        self.connection().execute(
+            "DELETE FROM note_tags WHERE note_id IN (SELECT id FROM notes WHERE is_deleted = 1 AND deleted_at < ?1)",
+            params![cutoff],
+        )?;
+        let rows = self.connection().execute(
+            "DELETE FROM notes WHERE is_deleted = 1 AND deleted_at < ?1",
+            params![cutoff],
+        )?;
+        Ok(rows as u32)
+    }
+
+    pub fn get_trash_count(&self) -> Result<u32, rusqlite::Error> {
+        let count: i64 = self.connection().query_row(
+            "SELECT COUNT(*) FROM notes WHERE is_deleted = 1",
+            [],
+            |row| row.get(0),
+        )?;
+        Ok(count as u32)
+    }
+
     pub fn set_note_pinned(&self, id: &Uuid, pinned: bool) -> Result<bool, rusqlite::Error> {
         let rows = self.connection().execute(
             "UPDATE notes SET pinned = ?1 WHERE id = ?2",
@@ -233,12 +329,19 @@ impl Database {
         Ok(tags)
     }
 
-    /// Get tags for all notes as a HashMap<note_id_string, Vec<tag_name>>.
-    pub fn get_all_note_tags(&self) -> Result<HashMap<String, Vec<String>>, rusqlite::Error> {
-        let mut stmt = self
-            .connection()
-            .prepare("SELECT note_id, tag_name FROM note_tags ORDER BY tag_name")?;
-        let rows = stmt.query_map([], |row| {
+    /// Get tags for notes as a HashMap<note_id_string, Vec<tag_name>>.
+    /// Filters by is_deleted status to match the current view.
+    pub fn get_all_note_tags(
+        &self,
+        deleted: bool,
+    ) -> Result<HashMap<String, Vec<String>>, rusqlite::Error> {
+        let mut stmt = self.connection().prepare(
+            "SELECT nt.note_id, nt.tag_name FROM note_tags nt \
+             INNER JOIN notes n ON nt.note_id = n.id \
+             WHERE n.is_deleted = ?1 \
+             ORDER BY nt.tag_name",
+        )?;
+        let rows = stmt.query_map(params![deleted as i64], |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
         })?;
         let mut map: HashMap<String, Vec<String>> = HashMap::new();
@@ -249,11 +352,14 @@ impl Database {
         Ok(map)
     }
 
-    /// List all distinct tag names, sorted alphabetically.
+    /// List all distinct tag names for non-deleted notes, sorted alphabetically.
     pub fn list_all_tags(&self) -> Result<Vec<String>, rusqlite::Error> {
-        let mut stmt = self
-            .connection()
-            .prepare("SELECT DISTINCT tag_name FROM note_tags ORDER BY tag_name")?;
+        let mut stmt = self.connection().prepare(
+            "SELECT DISTINCT nt.tag_name FROM note_tags nt \
+             INNER JOIN notes n ON nt.note_id = n.id \
+             WHERE n.is_deleted = 0 \
+             ORDER BY nt.tag_name",
+        )?;
         let tags = stmt
             .query_map([], |row| row.get::<_, String>(0))?
             .collect::<Result<Vec<_>, _>>()?;
@@ -284,6 +390,8 @@ mod tests {
             created_at: Utc::now(),
             updated_at: Utc::now(),
             pinned: false,
+            is_deleted: false,
+            deleted_at: None,
         };
         db.save_note(&note).unwrap();
     }
@@ -363,7 +471,7 @@ mod tests {
 
         db.set_note_tags(&id1, &["a".into(), "b".into()]).unwrap();
         db.set_note_tags(&id2, &["c".into()]).unwrap();
-        let map = db.get_all_note_tags().unwrap();
+        let map = db.get_all_note_tags(false).unwrap();
         assert_eq!(map.get(&id1.to_string()).unwrap(), &vec!["a", "b"]);
         assert_eq!(map.get(&id2.to_string()).unwrap(), &vec!["c"]);
     }
@@ -395,10 +503,12 @@ mod tests {
             created_at: Utc::now(),
             updated_at: Utc::now(),
             pinned: false,
+            is_deleted: false,
+            deleted_at: None,
         };
         db.save_note(&note).unwrap();
 
-        let headers = db.list_notes_metadata().unwrap();
+        let headers = db.list_notes_metadata(false).unwrap();
         assert_eq!(headers.len(), 1);
         assert_eq!(headers[0].id, id);
         assert_eq!(headers[0].encrypted_title, enc_title);
@@ -416,6 +526,8 @@ mod tests {
             created_at: Utc::now(),
             updated_at: Utc::now(),
             pinned: false,
+            is_deleted: false,
+            deleted_at: None,
         };
         db.save_note(&note).unwrap();
 
@@ -452,6 +564,8 @@ mod tests {
             created_at: note.created_at,
             updated_at: note.updated_at,
             pinned: false,
+            is_deleted: false,
+            deleted_at: None,
         };
         db.save_note(&enc_note).unwrap();
 
@@ -467,5 +581,115 @@ mod tests {
 
         // Running migration again should be a no-op
         db.migrate_encrypted_titles(&*dek).unwrap();
+    }
+
+    #[test]
+    fn test_soft_delete_and_restore() {
+        let db = setup_db();
+        let id = Uuid::new_v4();
+        create_test_note(&db, &id);
+
+        // Soft delete
+        assert!(db.soft_delete_note(&id).unwrap());
+
+        // Should not appear in normal list
+        assert!(db.list_notes_metadata(false).unwrap().is_empty());
+
+        // Should appear in trash list
+        let trash = db.list_notes_metadata(true).unwrap();
+        assert_eq!(trash.len(), 1);
+        assert!(trash[0].is_deleted);
+        assert!(trash[0].deleted_at.is_some());
+
+        // Restore
+        assert!(db.restore_note(&id).unwrap());
+
+        // Should appear in normal list again
+        assert_eq!(db.list_notes_metadata(false).unwrap().len(), 1);
+        assert!(db.list_notes_metadata(true).unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_soft_delete_unpins() {
+        let db = setup_db();
+        let id = Uuid::new_v4();
+        create_test_note(&db, &id);
+        db.set_note_pinned(&id, true).unwrap();
+
+        db.soft_delete_note(&id).unwrap();
+        let note = db.get_note(&id).unwrap().unwrap();
+        assert!(!note.pinned);
+    }
+
+    #[test]
+    fn test_empty_trash() {
+        let db = setup_db();
+        let id1 = Uuid::new_v4();
+        let id2 = Uuid::new_v4();
+        let id3 = Uuid::new_v4();
+        create_test_note(&db, &id1);
+        create_test_note(&db, &id2);
+        create_test_note(&db, &id3);
+
+        db.soft_delete_note(&id1).unwrap();
+        db.soft_delete_note(&id2).unwrap();
+
+        let count = db.empty_trash().unwrap();
+        assert_eq!(count, 2);
+
+        // id3 should still exist
+        assert_eq!(db.list_notes_metadata(false).unwrap().len(), 1);
+        assert!(db.list_notes_metadata(true).unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_get_trash_count() {
+        let db = setup_db();
+        assert_eq!(db.get_trash_count().unwrap(), 0);
+
+        let id1 = Uuid::new_v4();
+        let id2 = Uuid::new_v4();
+        create_test_note(&db, &id1);
+        create_test_note(&db, &id2);
+
+        db.soft_delete_note(&id1).unwrap();
+        assert_eq!(db.get_trash_count().unwrap(), 1);
+
+        db.soft_delete_note(&id2).unwrap();
+        assert_eq!(db.get_trash_count().unwrap(), 2);
+    }
+
+    #[test]
+    fn test_purge_old_trash() {
+        let db = setup_db();
+        let id = Uuid::new_v4();
+        create_test_note(&db, &id);
+        db.soft_delete_note(&id).unwrap();
+
+        // Purge with future cutoff should remove the note
+        let future = Utc::now() + chrono::Duration::days(31);
+        let purged = db.purge_old_trash(&future).unwrap();
+        assert_eq!(purged, 1);
+        assert_eq!(db.get_trash_count().unwrap(), 0);
+    }
+
+    #[test]
+    fn test_tags_excluded_for_deleted_notes() {
+        let db = setup_db();
+        let id1 = Uuid::new_v4();
+        let id2 = Uuid::new_v4();
+        create_test_note(&db, &id1);
+        create_test_note(&db, &id2);
+
+        db.set_note_tags(&id1, &["visible".into()]).unwrap();
+        db.set_note_tags(&id2, &["hidden".into()]).unwrap();
+        db.soft_delete_note(&id2).unwrap();
+
+        let all_tags = db.list_all_tags().unwrap();
+        assert_eq!(all_tags, vec!["visible"]);
+
+        let tag_map = db.get_all_note_tags(false).unwrap();
+        assert!(tag_map.contains_key(&id1.to_string()));
+        assert!(!tag_map.contains_key(&id2.to_string()));
     }
 }

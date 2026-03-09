@@ -28,6 +28,7 @@ export interface NoteListItem {
   updated_at: string;
   pinned: boolean;
   tags: string[];
+  deleted_at?: string;
 }
 
 // Auth API
@@ -98,8 +99,24 @@ export async function deleteNote(id: string): Promise<boolean> {
   return invoke<boolean>("delete_note", { id });
 }
 
-export async function listNotes(): Promise<NoteListItem[]> {
-  return invoke<NoteListItem[]>("list_notes");
+export async function listNotes(deleted: boolean = false): Promise<NoteListItem[]> {
+  return invoke<NoteListItem[]>("list_notes", { deleted });
+}
+
+export async function restoreNote(id: string): Promise<boolean> {
+  return invoke<boolean>("restore_note", { id });
+}
+
+export async function permanentDeleteNote(id: string): Promise<boolean> {
+  return invoke<boolean>("permanent_delete_note", { id });
+}
+
+export async function emptyTrash(): Promise<number> {
+  return invoke<number>("empty_trash");
+}
+
+export async function getTrashCount(): Promise<number> {
+  return invoke<number>("get_trash_count");
 }
 
 export async function searchNotes(query: string): Promise<NoteListItem[]> {
@@ -112,6 +129,7 @@ export interface AppSettings {
   language?: string;
   auto_lock_minutes?: number;
   font_size?: string;
+  sort_mode?: string;
 }
 
 export async function loadSettings(): Promise<AppSettings> {
@@ -133,6 +151,10 @@ export async function exportAllNotes(dirPath: string): Promise<number> {
 
 export async function importNotes(filePaths: string[]): Promise<number> {
   return invoke<number>("import_notes", { filePaths });
+}
+
+export async function writeFile(filePath: string, data: number[]): Promise<void> {
+  return invoke<void>("write_file", { filePath, data });
 }
 
 // Pin API

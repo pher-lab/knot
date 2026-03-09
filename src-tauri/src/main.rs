@@ -23,6 +23,10 @@ fn main() {
             commands::notes::get_note,
             commands::notes::update_note,
             commands::notes::delete_note,
+            commands::notes::restore_note,
+            commands::notes::permanent_delete_note,
+            commands::notes::empty_trash,
+            commands::notes::get_trash_count,
             commands::notes::list_notes,
             commands::notes::search_notes,
             commands::notes::toggle_pin_note,
@@ -33,6 +37,7 @@ fn main() {
             commands::export_import::export_note,
             commands::export_import::export_all_notes,
             commands::export_import::import_notes,
+            commands::export_import::write_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

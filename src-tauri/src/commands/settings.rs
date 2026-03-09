@@ -8,6 +8,7 @@ pub struct Settings {
     pub language: Option<String>,
     pub auto_lock_minutes: Option<u32>,
     pub font_size: Option<String>,
+    pub sort_mode: Option<String>,
 }
 
 /// Load settings from settings.json. Returns default (all None) if file doesn't exist.
@@ -49,6 +50,7 @@ mod tests {
             language: Some("ja".to_string()),
             auto_lock_minutes: Some(5),
             font_size: Some("large".to_string()),
+            sort_mode: Some("title".to_string()),
         };
         let json = serde_json::to_string(&settings).unwrap();
         let deserialized: Settings = serde_json::from_str(&json).unwrap();
@@ -56,6 +58,7 @@ mod tests {
         assert_eq!(deserialized.language.as_deref(), Some("ja"));
         assert_eq!(deserialized.auto_lock_minutes, Some(5));
         assert_eq!(deserialized.font_size.as_deref(), Some("large"));
+        assert_eq!(deserialized.sort_mode.as_deref(), Some("title"));
     }
 
     #[test]
@@ -86,6 +89,7 @@ mod tests {
             language: Some("en".to_string()),
             auto_lock_minutes: Some(10),
             font_size: Some("medium".to_string()),
+            sort_mode: Some("updated".to_string()),
         };
 
         let data = serde_json::to_string_pretty(&settings).unwrap();

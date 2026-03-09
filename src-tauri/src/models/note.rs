@@ -34,6 +34,8 @@ pub struct EncryptedNote {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub pinned: bool,
+    pub is_deleted: bool,
+    pub deleted_at: Option<DateTime<Utc>>,
 }
 
 /// Lightweight encrypted note header for listing (no encrypted_data blob).
@@ -44,4 +46,6 @@ pub struct EncryptedNoteHeader {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub pinned: bool,
+    pub is_deleted: bool,
+    pub deleted_at: Option<DateTime<Utc>>,
 }

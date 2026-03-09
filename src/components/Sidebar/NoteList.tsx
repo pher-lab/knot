@@ -5,6 +5,7 @@ import { useTranslation } from "../../i18n";
 import { useLanguageStore } from "../../stores/languageStore";
 import { ConfirmDialog } from "../ConfirmDialog";
 import * as api from "../../lib/api";
+import { generateNotePdf } from "../../lib/exportPdf";
 
 interface ContextMenuState {
   noteId: string;
@@ -14,23 +15,18 @@ interface ContextMenuState {
 }
 
 export function NoteList() {
-  const { notes, selectedNoteId, selectNote, deleteNote, selectedTag } = useNotesStore();
+  const { notes, selectedNoteId, selectNote, deleteNote, selectedTag, viewMode, permanentDeleteNote } = useNotesStore();
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
-  const [deleteNoteId, setDeleteNoteId] = useState<string | null>(null);
+  const [permanentDeleteId, setPermanentDeleteId] = useState<string | null>(null);
 
   const { t } = useTranslation();
-  const filteredNotes = selectedTag
-    ? notes.filter((n) => n.tags.includes(selectedTag))
-    : notes;
+  const filteredNotes = viewMode === "trash"
+    ? notes
+    : selectedTag
+      ? notes.filter((n) => n.tags.includes(selectedTag))
+      : notes;
 
-  const handleConfirmDelete = async () => {
-    if (deleteNoteId) {
-      await deleteNote(deleteNoteId);
-      setDeleteNoteId(null);
-    }
-  };
-
-  if (filteredNotes.length === 0 && selectedTag) {
+  if (filteredNotes.length === 0 && selectedTag && viewMode === "notes") {
     return (
       <div className="p-4 text-center text-gray-500 text-sm">
         {t("tags.noTaggedNotes")}
@@ -45,7 +41,7 @@ export function NoteList() {
           key={note.id}
           id={note.id}
           title={note.title}
-          updatedAt={note.updated_at}
+          updatedAt={viewMode === "trash" ? (note.deleted_at ?? note.updated_at) : note.updated_at}
           pinned={note.pinned}
           tags={note.tags}
           isSelected={note.id === selectedNoteId}
@@ -61,22 +57,34 @@ export function NoteList() {
           }}
         />
       ))}
-      {contextMenu && (
+      {contextMenu && viewMode === "notes" && (
         <NoteContextMenu
           {...contextMenu}
           onClose={() => setContextMenu(null)}
-          onRequestDelete={(id) => setDeleteNoteId(id)}
+          onRequestDelete={(id) => deleteNote(id)}
         />
       )}
-      {deleteNoteId && (
+      {contextMenu && viewMode === "trash" && (
+        <TrashContextMenu
+          noteId={contextMenu.noteId}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          onRequestPermanentDelete={(id) => setPermanentDeleteId(id)}
+        />
+      )}
+      {permanentDeleteId && (
         <ConfirmDialog
-          title={t("confirm.deleteNoteTitle")}
-          message={t("confirm.deleteNoteMessage")}
-          confirmLabel={t("confirm.deleteNote")}
+          title={t("confirm.permanentDeleteTitle")}
+          message={t("confirm.permanentDeleteMessage")}
+          confirmLabel={t("confirm.permanentDelete")}
           cancelLabel={t("confirm.cancel")}
           variant="danger"
-          onConfirm={handleConfirmDelete}
-          onCancel={() => setDeleteNoteId(null)}
+          onConfirm={async () => {
+            await permanentDeleteNote(permanentDeleteId);
+            setPermanentDeleteId(null);
+          }}
+          onCancel={() => setPermanentDeleteId(null)}
         />
       )}
     </div>
@@ -182,10 +190,18 @@ function NoteContextMenu({ noteId, pinned, x, y, onClose, onRequestDelete }: Not
       const noteTitle = note.title || "Untitled";
       const path = await save({
         defaultPath: `${noteTitle}.md`,
-        filters: [{ name: "Markdown", extensions: ["md"] }],
+        filters: [
+          { name: "Markdown", extensions: ["md"] },
+          { name: "PDF", extensions: ["pdf"] },
+        ],
       });
       if (!path) return;
-      await api.exportNote(noteId, path);
+      if (path.toLowerCase().endsWith(".pdf")) {
+        const pdfData = generateNotePdf(noteTitle, note.content);
+        await api.writeFile(path, Array.from(pdfData));
+      } else {
+        await api.exportNote(noteId, path);
+      }
       alert(t("export.success"));
     } catch {
       alert(t("export.error"));
@@ -217,6 +233,65 @@ function NoteContextMenu({ noteId, pinned, x, y, onClose, onRequestDelete }: Not
         className="w-full px-3 py-1.5 text-left text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
       >
         {t("contextMenu.delete")}
+      </button>
+    </div>
+  );
+}
+
+interface TrashContextMenuProps {
+  noteId: string;
+  x: number;
+  y: number;
+  onClose: () => void;
+  onRequestPermanentDelete: (id: string) => void;
+}
+
+function TrashContextMenu({ noteId, x, y, onClose, onRequestPermanentDelete }: TrashContextMenuProps) {
+  const { restoreNote } = useNotesStore();
+  const { t } = useTranslation();
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [onClose]);
+
+  const style: React.CSSProperties = {
+    position: "fixed",
+    left: x,
+    top: y,
+    zIndex: 50,
+  };
+
+  const handleRestore = async () => {
+    onClose();
+    await restoreNote(noteId);
+  };
+
+  const handlePermanentDelete = () => {
+    onClose();
+    onRequestPermanentDelete(noteId);
+  };
+
+  return (
+    <div ref={menuRef} style={style} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-[140px]">
+      <button
+        onClick={handleRestore}
+        className="w-full px-3 py-1.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+      >
+        {t("contextMenu.restore")}
+      </button>
+      <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
+      <button
+        onClick={handlePermanentDelete}
+        className="w-full px-3 py-1.5 text-left text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+      >
+        {t("contextMenu.permanentDelete")}
       </button>
     </div>
   );

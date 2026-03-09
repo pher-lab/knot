@@ -226,6 +226,10 @@ pub fn unlock_vault(
     // Migrate existing notes to populate encrypted_title (one-time, idempotent)
     db.migrate_encrypted_titles(&dek).map_err(|e| e.to_string())?;
 
+    // Auto-purge notes in trash for more than 30 days (best-effort)
+    let cutoff = chrono::Utc::now() - chrono::Duration::days(30);
+    let _ = db.purge_old_trash(&cutoff);
+
     // Store unlocked state and reset failed attempts
     let mut app_state = state.lock().map_err(|_| "Failed to lock state")?;
     app_state.dek = Some(dek);
@@ -462,6 +466,10 @@ pub fn recover_vault(
 
     // Migrate existing notes to populate encrypted_title (one-time, idempotent)
     db.migrate_encrypted_titles(&dek).map_err(|e| e.to_string())?;
+
+    // Auto-purge notes in trash for more than 30 days (best-effort)
+    let cutoff = chrono::Utc::now() - chrono::Duration::days(30);
+    let _ = db.purge_old_trash(&cutoff);
 
     // Store unlocked state and reset failed attempts
     let mut app_state = state.lock().map_err(|_| "Failed to lock state")?;

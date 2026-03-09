@@ -121,6 +121,12 @@ const ja = {
   // Search
   "search.placeholder": "検索...",
 
+  // Sort
+  "sidebar.sort": "並び替え",
+  "sort.updated": "更新日",
+  "sort.created": "作成日",
+  "sort.title": "タイトル",
+
   // Note List
   "noteList.untitled": "Untitled",
   "noteList.justNow": "たった今",
@@ -133,12 +139,28 @@ const ja = {
   "password.fair": "普通",
   "password.strong": "強い",
   "password.veryStrong": "とても強い",
+  "password.common": "よくあるパスワードです",
 
   // Confirm Dialog
   "confirm.cancel": "キャンセル",
   "confirm.deleteNote": "削除する",
   "confirm.deleteNoteTitle": "ノートを削除",
   "confirm.deleteNoteMessage": "このノートは完全に削除されます。この操作は取り消せません。",
+  "confirm.permanentDeleteTitle": "完全に削除",
+  "confirm.permanentDeleteMessage": "このノートは完全に削除されます。この操作は取り消せません。",
+  "confirm.permanentDelete": "完全に削除",
+  "confirm.emptyTrashTitle": "ゴミ箱を空にする",
+  "confirm.emptyTrashMessage": "ゴミ箱内のすべてのノートが完全に削除されます。この操作は取り消せません。",
+  "confirm.emptyTrash": "空にする",
+
+  // Trash
+  "sidebar.trash": "ゴミ箱",
+  "sidebar.emptyTrash": "ゴミ箱を空にする",
+  "sidebar.noTrash": "ゴミ箱は空です",
+  "trash.restore": "復元",
+  "trash.permanentDelete": "完全に削除",
+  "contextMenu.restore": "復元",
+  "contextMenu.permanentDelete": "完全に削除",
 
   // Recovery Modal (additional)
   "recoveryModal.copied": "コピーしました",
@@ -305,6 +327,12 @@ const en: Record<TranslationKey, string> = {
   // Search
   "search.placeholder": "Search...",
 
+  // Sort
+  "sidebar.sort": "Sort",
+  "sort.updated": "Updated",
+  "sort.created": "Created",
+  "sort.title": "Title",
+
   // Note List
   "noteList.untitled": "Untitled",
   "noteList.justNow": "Just now",
@@ -317,12 +345,28 @@ const en: Record<TranslationKey, string> = {
   "password.fair": "Fair",
   "password.strong": "Strong",
   "password.veryStrong": "Very strong",
+  "password.common": "Common password",
 
   // Confirm Dialog
   "confirm.cancel": "Cancel",
   "confirm.deleteNote": "Delete",
   "confirm.deleteNoteTitle": "Delete Note",
   "confirm.deleteNoteMessage": "This note will be permanently deleted. This action cannot be undone.",
+  "confirm.permanentDeleteTitle": "Permanently Delete",
+  "confirm.permanentDeleteMessage": "This note will be permanently deleted. This action cannot be undone.",
+  "confirm.permanentDelete": "Permanently Delete",
+  "confirm.emptyTrashTitle": "Empty Trash",
+  "confirm.emptyTrashMessage": "All notes in the trash will be permanently deleted. This action cannot be undone.",
+  "confirm.emptyTrash": "Empty Trash",
+
+  // Trash
+  "sidebar.trash": "Trash",
+  "sidebar.emptyTrash": "Empty Trash",
+  "sidebar.noTrash": "Trash is empty",
+  "trash.restore": "Restore",
+  "trash.permanentDelete": "Permanently Delete",
+  "contextMenu.restore": "Restore",
+  "contextMenu.permanentDelete": "Permanently Delete",
 
   // Recovery Modal (additional)
   "recoveryModal.copied": "Copied!",
